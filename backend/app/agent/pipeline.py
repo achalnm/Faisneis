@@ -1,10 +1,3 @@
-"""
-Orchestrates the three-step loop: route -> execute tools -> synthesize.
-
-This is the single entry point for answering a question. It returns both
-the structured answer and the tool plan so callers can show the reasoning.
-"""
-
 import logging
 from datetime import date
 from pathlib import Path
@@ -21,10 +14,8 @@ from app.schemas import AskResponse, ChartData, ChartPoint, ToolPlan
 
 logger = logging.getLogger(__name__)
 
-# How many speech chunks to retrieve per question
 TOP_K_SPEECHES = 5
 
-# Role/title words that are not actual speaker names — skip these as filters
 _ROLE_WORDS = {
     "minister", "taoiseach", "tánaiste", "tanaiste", "senator", "deputy",
     "chair", "chairman", "secretary", "general", "finance", "health",
@@ -34,7 +25,6 @@ _ROLE_WORDS = {
 
 def _is_person_name(s: str) -> bool:
     words = s.lower().split()
-    # If most words are role words it's a title, not a name
     role_count = sum(1 for w in words if w in _ROLE_WORDS)
     return role_count < len(words) / 2
 
@@ -45,8 +35,6 @@ def _build_speech_filters(plan: ToolPlan) -> dict:
         filters["date_start"] = plan.date_start
     if plan.date_end:
         filters["date_end"] = plan.date_end
-    # Only filter by speaker name when it looks like an actual person's name,
-    # not a ministerial title like "Minister for Finance"
     if len(plan.speakers) == 1 and _is_person_name(plan.speakers[0]):
         filters["speaker_name"] = plan.speakers[0]
     return filters
@@ -65,23 +53,19 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
         logger.error("Failed to fetch dataset %s: %s", matrix, e)
         return None
 
-    # Determine period range from the plan or use a sensible recent window
     period_start = None
     period_end = None
     if plan.date_start:
-        # Convert YYYY-MM-DD -> YYYYMM for monthly tables
         period_start = plan.date_start.replace("-", "")[:6]
     if plan.date_end:
         period_end = plan.date_end.replace("-", "")[:6]
 
     if not period_start:
-        # Default: last 3 years
         today = date.today()
         period_start = f"{today.year - 3}{today.month:02d}"
 
     result = extract_series(ds, period_start=period_start, period_end=period_end)
 
-    # When there's a geographic/category dimension, keep only the "All" aggregate
     if result["series"]:
         sample = result["series"][0]
         extra_dims = [k for k in sample.keys() if k not in ("period", "value")]
@@ -120,7 +104,6 @@ def answer(question: str) -> AskResponse:
 
     answer_obj = synthesize(question, speech_chunks, stat_results)
 
-    # Build chart data from the first stat series that has enough points
     chart_data: ChartData | None = None
     for sr in stat_results:
         series = sr.get("series", [])
