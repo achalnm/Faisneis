@@ -1,15 +1,3 @@
-"""
-End-to-end ingestion CLI.
-
-    python -m app.ingest.run_ingest [--chamber dail|seanad|both]
-                                    [--date-start YYYY-MM-DD]
-                                    [--date-end   YYYY-MM-DD]
-                                    [--dry-run]
-
-Fetches debates (using disk cache), parses AKN XML, chunks speeches, embeds
-them, and upserts into Chroma. Idempotent: already-loaded speech IDs are skipped.
-"""
-
 import argparse
 import logging
 import sys
@@ -31,9 +19,7 @@ def run(chambers: list[str], date_start: str, date_end: str, dry_run: bool = Fal
     cache_dir = settings.cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Loading existing IDs from Chroma...")
     loaded_ids = existing_ids() if not dry_run else set()
-    logger.info("Already loaded: %d chunks", len(loaded_ids))
 
     total_new = 0
     total_skipped = 0
@@ -66,32 +52,20 @@ def run(chambers: list[str], date_start: str, date_end: str, dry_run: bool = Fal
                 total_new += len(new_chunks)
 
             if total_debates % 10 == 0:
-                logger.info(
-                    "  Processed %d debates, %d new chunks, %d skipped",
-                    total_debates,
-                    total_new,
-                    total_skipped,
-                )
+                logger.info("Processed %d debates, %d new, %d skipped",
+                            total_debates, total_new, total_skipped)
 
-    logger.info("Done. Debates processed: %d", total_debates)
-    logger.info("New chunks added: %d", total_new)
-    logger.info("Chunks skipped (already loaded): %d", total_skipped)
+    logger.info("Done. Debates: %d, new chunks: %d, skipped: %d",
+                total_debates, total_new, total_skipped)
     if not dry_run:
-        logger.info("Total chunks in store: %d", count())
+        logger.info("Total in store: %d", count())
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ingest Oireachtas debates into Chroma")
-    parser.add_argument(
-        "--chamber",
-        choices=["dail", "seanad", "both"],
-        default="both",
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--chamber", choices=["dail", "seanad", "both"], default="both")
     parser.add_argument("--date-start", default=settings.ingest_date_start)
-    parser.add_argument(
-        "--date-end",
-        default=settings.ingest_date_end or date.today().isoformat(),
-    )
+    parser.add_argument("--date-end", default=settings.ingest_date_end or date.today().isoformat())
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 

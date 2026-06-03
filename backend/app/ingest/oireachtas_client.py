@@ -1,16 +1,9 @@
-"""
-Fetches debate records from api.oireachtas.ie and the raw AKN XML files
-from data.oireachtas.ie. Every response is cached to disk so re-runs cost
-nothing; the cache key is derived from the URL.
-"""
-
 import hashlib
 import json
 import time
 import logging
 from pathlib import Path
 from typing import Iterator
-from datetime import date, timedelta
 
 import httpx
 
@@ -18,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 DEBATES_API = "https://api.oireachtas.ie/v1/debates"
 PAGE_SIZE = 50
-REQUEST_DELAY = 0.4  # seconds between requests, be polite
+REQUEST_DELAY = 0.4
 
 
 def _cache_path(cache_dir: Path, url: str, suffix: str = ".json") -> Path:
@@ -75,7 +68,6 @@ def fetch_debate_list_page(
         "limit": PAGE_SIZE,
         "skip": skip,
     }
-    # Build a cache key from the full param set
     cache_url = DEBATES_API + "?" + "&".join(f"{k}={v}" for k, v in sorted(params.items()))
     cached = _get_cached(cache_dir, cache_url)
     if cached:
@@ -104,7 +96,6 @@ def iter_debate_records(
     date_start: str,
     date_end: str,
 ) -> Iterator[dict]:
-    """Yield raw debateRecord dicts for every debate in the window."""
     with httpx.Client() as client:
         skip = 0
         while True:
@@ -129,7 +120,6 @@ def iter_debate_xmls(
     date_start: str,
     date_end: str,
 ) -> Iterator[tuple[dict, bytes]]:
-    """Yield (debateRecord metadata, xml_bytes) for debates that have XML."""
     with httpx.Client() as client:
         skip = 0
         while True:
