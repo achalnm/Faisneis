@@ -11,9 +11,13 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Faisneis", version="0.1.0")
 
+_origins = ["http://localhost:3000"]
+if settings.allowed_origins:
+    _origins += [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
