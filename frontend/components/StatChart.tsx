@@ -19,13 +19,7 @@ interface Props {
 export default function StatChart({ data }: Props) {
   if (!data.points || data.points.length === 0) return null;
 
-  // Show at most ~48 ticks to keep the x-axis readable
   const stride = Math.max(1, Math.floor(data.points.length / 48));
-  const tickFormatter = (val: string) => {
-    if (data.points.indexOf(data.points.find((p) => p.period === val)!) % stride !== 0)
-      return "";
-    return val;
-  };
 
   return (
     <div className="mt-6 border border-gray-100 rounded-xl p-4">
