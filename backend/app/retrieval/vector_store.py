@@ -1,11 +1,6 @@
-"""
-Vector store abstraction. Uses Pinecone when PINECONE_API_KEY is set,
-falls back to local Chroma otherwise. Local dev keeps working without
-any cloud credentials.
-"""
-
 import logging
 from typing import Any
+from functools import lru_cache
 
 from app.config import settings
 from app.schemas import SpeechChunk
@@ -15,10 +10,6 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 100
 
-
-# ---------------------------------------------------------------------------
-# Pinecone backend
-# ---------------------------------------------------------------------------
 
 def _pinecone_index():
     from pinecone import Pinecone, ServerlessSpec
@@ -66,8 +57,6 @@ def _pc_add_chunks(chunks: list[SpeechChunk]) -> int:
 
 
 def _pc_existing_ids() -> set[str]:
-    # Pinecone doesn't support listing all IDs cheaply; return empty set
-    # and rely on upsert idempotency instead
     return set()
 
 
@@ -117,12 +106,6 @@ def _pc_count() -> int:
     except Exception:
         return -1
 
-
-# ---------------------------------------------------------------------------
-# Chroma backend (local dev)
-# ---------------------------------------------------------------------------
-
-from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def _chroma_collection():
@@ -220,10 +203,6 @@ def _chroma_query(text: str, k: int, filters: dict | None) -> list[dict]:
 def _chroma_count() -> int:
     return _chroma_collection().count()
 
-
-# ---------------------------------------------------------------------------
-# Public API — callers never know which backend is active
-# ---------------------------------------------------------------------------
 
 def _use_pinecone() -> bool:
     return bool(settings.pinecone_api_key)
