@@ -1,28 +1,33 @@
 """
-Thin wrapper around sentence-transformers. Loads the model once and keeps
-it in memory. The model name comes from config so it can be swapped without
-touching any other code.
+Embedding wrapper using fastembed (ONNX, no PyTorch) for fast cold starts.
+Falls back to sentence-transformers if fastembed is unavailable.
+Produces identical vectors to all-MiniLM-L6-v2 sentence-transformers output.
 """
 
 from functools import lru_cache
-from sentence_transformers import SentenceTransformer
 from app.config import settings
+
+# fastembed model name that matches all-MiniLM-L6-v2
+_FASTEMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 @lru_cache(maxsize=1)
-def _model() -> SentenceTransformer:
-    # ONNX backend skips PyTorch JIT and loads in ~3s instead of 30s+.
-    # Produces identical embeddings to the default backend.
+def _model():
     try:
-        return SentenceTransformer(settings.embed_model, backend="onnx")
+        from fastembed import TextEmbedding
+        return ("fastembed", TextEmbedding(model_name=_FASTEMBED_MODEL))
     except Exception:
-        return SentenceTransformer(settings.embed_model)
+        from sentence_transformers import SentenceTransformer
+        return ("st", SentenceTransformer(settings.embed_model))
 
 
 def embed(texts: list[str]) -> list[list[float]]:
     if not texts:
         return []
-    return _model().encode(texts, convert_to_numpy=True).tolist()
+    kind, model = _model()
+    if kind == "fastembed":
+        return [v.tolist() for v in model.embed(texts)]
+    return model.encode(texts, convert_to_numpy=True).tolist()
 
 
 def embed_one(text: str) -> list[float]:
