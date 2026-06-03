@@ -20,6 +20,7 @@ Citation rules:
 - Mark every claim drawn from a speech with [S1], [S2], etc.
 - Mark every statistic drawn from a CSO table with [C1], [C2], etc.
 - Keep direct speech quotes to one sentence at most; prefer paraphrase with attribution.
+- Keep the answer field under 300 words. Be concise, cite more, explain less.
 - If the data is insufficient to answer the question, say so plainly and suggest
   what additional data would be needed. Do not fabricate a substitute.
 
@@ -64,11 +65,15 @@ def _format_speeches(chunks: list[dict]) -> str:
     lines = []
     for i, c in enumerate(chunks, start=1):
         m = c.get("metadata", {})
+        # Truncate long speeches to keep the prompt compact
+        text = c.get("text", "")
+        if len(text) > 600:
+            text = text[:597] + "..."
         lines.append(
             f"[S{i}] {m.get('speaker_name','?')} ({m.get('debate_date','?')}, "
             f"{m.get('chamber','?')}, {m.get('debate_title','?')})\n"
             f"Section: {m.get('topic_section') or 'unspecified'}\n"
-            f"Text: {c.get('text','')}\n"
+            f"Text: {text}\n"
             f"URL: {m.get('source_url','')}"
         )
     return "\n\n".join(lines)
