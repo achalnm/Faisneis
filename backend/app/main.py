@@ -58,9 +58,15 @@ def ask(body: AskRequest):
             detail="GOOGLE_API_KEY is not set. Add it to backend/.env.",
         )
 
-    from app.agent.pipeline import answer
-    result = answer(body.question)
-    return result
+    try:
+        from app.agent.pipeline import answer
+        result = answer(body.question)
+        return result
+    except Exception as exc:
+        msg = str(exc)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            raise HTTPException(status_code=429, detail="AI quota exceeded — try again in a minute.")
+        raise HTTPException(status_code=500, detail=msg[:300])
 
 
 @app.get("/api/debug/speech-search")
