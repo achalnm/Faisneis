@@ -1,15 +1,5 @@
-"""
-Splits speech dicts into embeddable chunks and validates them against
-the SpeechChunk schema.
-
-Most speeches fit in one chunk. Speeches over ~500 tokens are split into
-overlapping windows so context is preserved across chunk boundaries.
-"""
-
 from app.schemas import SpeechChunk
 
-# Approximate token count: 4 chars per token is a reasonable estimate
-# for English/Irish parliamentary text.
 CHARS_PER_TOKEN = 4
 MAX_TOKENS = 500
 OVERLAP_TOKENS = 80
@@ -23,7 +13,6 @@ def _split_words(text: str, max_chars: int, overlap_chars: int) -> list[str]:
     chunks = []
     start = 0
     while start < len(words):
-        # Accumulate words until we hit the char limit
         buf = []
         char_count = 0
         i = start
@@ -36,13 +25,11 @@ def _split_words(text: str, max_chars: int, overlap_chars: int) -> list[str]:
             i += 1
 
         if not buf:
-            # Single word longer than the limit, take it anyway
             buf = [words[start]]
             i = start + 1
 
         chunks.append(" ".join(buf))
 
-        # Step back by overlap so next chunk has context
         overlap_buf = []
         overlap_chars_acc = 0
         for w in reversed(buf):
@@ -51,10 +38,8 @@ def _split_words(text: str, max_chars: int, overlap_chars: int) -> list[str]:
             overlap_buf.insert(0, w)
             overlap_chars_acc += len(w) + 1
 
-        # Advance start past the non-overlapping portion
         start = i - len(overlap_buf)
         if start <= (i - len(buf)):
-            # No progress — safety valve
             start = i
 
     return chunks
