@@ -9,7 +9,18 @@ from app.config import settings
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Faisneis", version="0.1.0")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app):
+    # Pre-load the embedding model at startup so the first request isn't slow
+    logger.info("Loading embedding model...")
+    from app.retrieval.embeddings import _model
+    _model()
+    logger.info("Embedding model ready.")
+    yield
+
+app = FastAPI(title="Faisneis", version="0.1.0", lifespan=lifespan)
 
 _origins = ["http://localhost:3000"]
 if settings.allowed_origins:
