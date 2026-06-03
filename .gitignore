@@ -15,3 +15,8 @@ frontend/.env.local
 
 .venv/
 venv/
+
+*.log
+frontend/CLAUDE.md
+frontend/AGENTS.md
+frontend/README.md
