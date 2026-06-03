@@ -1,0 +1,10 @@
+{"id": "speech-housing-2024", "question": "What did Irish politicians say about housing supply in 2024?", "type": "speech_only", "expect_speech": true, "expect_stats": false, "honest_no_data": false}
+{"id": "stats-inflation", "question": "What is the current inflation rate in Ireland according to the CSO?", "type": "stats_only", "expect_speech": false, "expect_stats": true, "honest_no_data": false}
+{"id": "both-cost-of-living", "question": "How often has the cost of living been raised in the Dáil this year, and what do the inflation figures actually show?", "type": "both", "expect_speech": true, "expect_stats": true, "honest_no_data": false}
+{"id": "both-employment", "question": "What has the Minister for Finance said about employment, and how does that compare to the CSO unemployment rate?", "type": "both", "expect_speech": true, "expect_stats": true, "honest_no_data": false}
+{"id": "speech-housing-minister", "question": "What did the housing minister say about affordability in January 2024?", "type": "speech_only", "expect_speech": true, "expect_stats": false, "honest_no_data": false}
+{"id": "stats-house-completions", "question": "What does the CSO say about new dwelling completions in recent years?", "type": "stats_only", "expect_speech": false, "expect_stats": true, "honest_no_data": false}
+{"id": "both-housing-vs-data", "question": "What did Irish politicians say about housing supply in 2024, and did the CSO data support their claims?", "type": "both", "expect_speech": true, "expect_stats": true, "honest_no_data": false}
+{"id": "honest-no-data-future", "question": "What will Irish GDP be in 2030?", "type": "stats_only", "expect_speech": false, "expect_stats": false, "honest_no_data": true}
+{"id": "honest-no-data-opinion", "question": "What do Irish politicians privately think about the Taoiseach?", "type": "speech_only", "expect_speech": false, "expect_stats": false, "honest_no_data": true}
+{"id": "speech-ukraine", "question": "What did Deputies say about Ukrainian refugees arriving in Ireland in early 2024?", "type": "speech_only", "expect_speech": true, "expect_stats": false, "honest_no_data": false}
