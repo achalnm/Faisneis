@@ -96,7 +96,8 @@ def search_catalog(
 ) -> list[dict]:
     """
     Return the top-k catalog entries most relevant to query.
-    Uses semantic similarity over title embeddings, with a keyword fallback.
+    Uses semantic similarity if embeddings are already cached; otherwise
+    keyword-only. Never computes 12k+ embeddings at request time (OOM risk).
     """
     if catalog is None:
         catalog = build_catalog(cache_dir)
@@ -104,31 +105,29 @@ def search_catalog(
     if not catalog:
         return []
 
-    title_vecs = _load_or_build_embeddings(catalog, cache_dir)
-    q_vec = embed_one(query)
+    kw = query.lower().split()
 
-    scored = [
-        (_cosine_sim(q_vec, tv), entry)
-        for tv, entry in zip(title_vecs, catalog)
-    ]
-    scored.sort(key=lambda x: x[0], reverse=True)
-    top = [e for _, e in scored[:top_k]]
+    ep = _embeddings_path(cache_dir)
+    if ep.exists():
+        title_vecs = _load_or_build_embeddings(catalog, cache_dir)
+        q_vec = embed_one(query)
+        scored = [
+            (_cosine_sim(q_vec, tv), entry)
+            for tv, entry in zip(title_vecs, catalog)
+        ]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = [e for _, e in scored[:top_k]]
+        best_score = scored[0][0] if scored else 0
+        if best_score < 0.35:
+            seen = {e["matrix"] for e in top}
+            for e in catalog:
+                if any(k in e["title"].lower() for k in kw) and e["matrix"] not in seen:
+                    top.append(e)
+                    seen.add(e["matrix"])
+        return top[:top_k]
 
-    # Keyword fallback: if top result looks weak, also inject keyword matches
-    best_score = scored[0][0] if scored else 0
-    if best_score < 0.35:
-        kw = query.lower().split()
-        kw_matches = [
-            e for e in catalog
-            if any(k in e["title"].lower() for k in kw)
-        ][:top_k]
-        seen_matrices = {e["matrix"] for e in top}
-        for m in kw_matches:
-            if m["matrix"] not in seen_matrices:
-                top.append(m)
-                seen_matrices.add(m["matrix"])
-
-    return top[:top_k]
+    # Embeddings not cached — keyword-only to avoid OOM
+    return [e for e in catalog if any(k in e["title"].lower() for k in kw)][:top_k]
 
 
 # A small hand-checked mapping from common topic keywords to known-good matrix codes.
