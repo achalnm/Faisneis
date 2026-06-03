@@ -6,7 +6,6 @@ interface Props {
   answer: Answer;
 }
 
-// Replaces [S1], [C1] etc. with superscript anchor links that jump to the citation
 function renderAnswer(text: string) {
   const parts = text.split(/(\[[SC]\d+\])/g);
   return parts.map((part, i) => {
