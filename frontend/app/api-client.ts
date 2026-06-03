@@ -63,14 +63,25 @@ export interface AskResponse {
 }
 
 export async function askQuestion(question: string): Promise<AskResponse> {
-  const res = await fetch(`${API_BASE}/api/ask`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Server error ${res.status}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000);
+  try {
+    const res = await fetch(`${API_BASE}/api/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail ?? `Server error ${res.status}`);
+    }
+    return res.json();
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === "AbortError")
+      throw new Error("Request timed out — the server is waking up, please try again.");
+    throw e;
+  } finally {
+    clearTimeout(timeout);
   }
-  return res.json();
 }
