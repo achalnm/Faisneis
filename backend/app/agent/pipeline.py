@@ -22,7 +22,21 @@ from app.schemas import AskResponse, ChartData, ChartPoint, ToolPlan
 logger = logging.getLogger(__name__)
 
 # How many speech chunks to retrieve per question
-TOP_K_SPEECHES = 8
+TOP_K_SPEECHES = 5
+
+# Role/title words that are not actual speaker names — skip these as filters
+_ROLE_WORDS = {
+    "minister", "taoiseach", "tánaiste", "tanaiste", "senator", "deputy",
+    "chair", "chairman", "secretary", "general", "finance", "health",
+    "education", "justice", "housing", "transport", "environment",
+}
+
+
+def _is_person_name(s: str) -> bool:
+    words = s.lower().split()
+    # If most words are role words it's a title, not a name
+    role_count = sum(1 for w in words if w in _ROLE_WORDS)
+    return role_count < len(words) / 2
 
 
 def _build_speech_filters(plan: ToolPlan) -> dict:
@@ -31,8 +45,9 @@ def _build_speech_filters(plan: ToolPlan) -> dict:
         filters["date_start"] = plan.date_start
     if plan.date_end:
         filters["date_end"] = plan.date_end
-    # Speaker filter: only apply if a single specific person was named
-    if len(plan.speakers) == 1:
+    # Only filter by speaker name when it looks like an actual person's name,
+    # not a ministerial title like "Minister for Finance"
+    if len(plan.speakers) == 1 and _is_person_name(plan.speakers[0]):
         filters["speaker_name"] = plan.speakers[0]
     return filters
 
