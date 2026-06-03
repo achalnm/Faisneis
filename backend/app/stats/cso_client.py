@@ -1,17 +1,10 @@
-"""
-Fetches data from the CSO PxStat REST API with disk caching and
-polite rate limiting. Always builds URLs from ws.cso.ie, never from
-the dev host that appears in catalog hrefs.
-"""
-
 import hashlib
 import json
 import logging
 import time
+from pathlib import Path
 
 import httpx
-
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

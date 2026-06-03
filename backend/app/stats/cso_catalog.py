@@ -1,12 +1,3 @@
-"""
-Builds and searches a local catalog of CSO tables.
-
-The catalog is a JSON file (one entry per table) persisted in data/cache.
-Semantic search is done by embedding all table titles with the same local
-model used for speeches. A keyword fallback runs if the semantic results
-look weak.
-"""
-
 import json
 import logging
 import re
@@ -31,10 +22,6 @@ def _embeddings_path(cache_dir: Path) -> Path:
 
 
 def build_catalog(cache_dir: Path, force: bool = False) -> list[dict]:
-    """
-    Download the CSO table-of-contents and persist a flat catalog.
-    Returns the catalog list. Uses cached data if available.
-    """
     p = _catalog_path(cache_dir)
     if p.exists() and not force:
         return json.loads(p.read_bytes())
@@ -52,13 +39,11 @@ def build_catalog(cache_dir: Path, force: bool = False) -> list[dict]:
         if not matrix or matrix in seen:
             continue
         seen.add(matrix)
-        catalog.append(
-            {
-                "matrix": matrix,
-                "title": item.get("label", ""),
-                "last_updated": ext.get("last-updated", ""),
-            }
-        )
+        catalog.append({
+            "matrix": matrix,
+            "title": item.get("label", ""),
+            "last_updated": ext.get("last-updated", ""),
+        })
 
     p.write_bytes(json.dumps(catalog).encode())
     logger.info("Catalog built: %d unique tables", len(catalog))
@@ -94,11 +79,6 @@ def search_catalog(
     top_k: int = 5,
     catalog: Optional[list[dict]] = None,
 ) -> list[dict]:
-    """
-    Return the top-k catalog entries most relevant to query.
-    Uses semantic similarity if embeddings are already cached; otherwise
-    keyword-only. Never computes 12k+ embeddings at request time (OOM risk).
-    """
     if catalog is None:
         catalog = build_catalog(cache_dir)
 
@@ -126,13 +106,9 @@ def search_catalog(
                     seen.add(e["matrix"])
         return top[:top_k]
 
-    # Embeddings not cached — keyword-only to avoid OOM
     return [e for e in catalog if any(k in e["title"].lower() for k in kw)][:top_k]
 
 
-# A small hand-checked mapping from common topic keywords to known-good matrix codes.
-# These are used as a boost: if the query matches, the corresponding matrix gets
-# promoted to the front of search results. Values were confirmed from the live catalog.
 _TOPIC_HINTS: dict[str, list[str]] = {
     "inflation": ["CPM01", "CPM03"],
     "consumer price": ["CPM01", "CPM03"],
@@ -151,12 +127,9 @@ _TOPIC_HINTS: dict[str, list[str]] = {
 
 
 def get_best_matrix(query: str, cache_dir: Path) -> str | None:
-    """Return the single best matrix code for a topic query, or None."""
     ql = query.lower()
     for kw, matrices in _TOPIC_HINTS.items():
         if kw in ql:
             return matrices[0]
     results = search_catalog(query, cache_dir, top_k=1)
     return results[0]["matrix"] if results else None
-
-
