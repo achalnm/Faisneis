@@ -17,7 +17,7 @@ class SpeechChunk(BaseModel):
 
 
 class ToolPlan(BaseModel):
-    intent: str  # "speech_only" | "stats_only" | "both"
+    intent: str
     speech_query: Optional[str] = None
     date_start: Optional[str] = None
     date_end: Optional[str] = None
@@ -62,7 +62,7 @@ class Answer(BaseModel):
     answer: str
     speech_citations: list[SpeechCitation] = Field(default_factory=list)
     stat_citations: list[StatCitation] = Field(default_factory=list)
-    confidence: str  # "high" | "medium" | "low"
+    confidence: str
     caveats: str
 
 
