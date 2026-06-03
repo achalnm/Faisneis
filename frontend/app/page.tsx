@@ -94,9 +94,14 @@ export default function Home() {
 
         {/* Loading */}
         {loading && (
-          <div className="mt-10 flex items-center gap-3 text-gray-400 text-sm">
-            <span className="inline-block w-4 h-4 border-2 border-gray-200 border-t-green-600 rounded-full animate-spin" />
-            Searching debates and statistics…
+          <div className="mt-10 space-y-1.5">
+            <div className="flex items-center gap-3 text-gray-400 text-sm">
+              <span className="inline-block w-4 h-4 border-2 border-gray-200 border-t-green-600 rounded-full animate-spin" />
+              Searching debates and statistics…
+            </div>
+            <p className="text-xs text-gray-300 pl-7">
+              First search after inactivity can take up to 90 seconds while the server wakes up.
+            </p>
           </div>
         )}
 

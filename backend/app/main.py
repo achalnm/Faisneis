@@ -9,22 +9,7 @@ from app.config import settings
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 logger = logging.getLogger(__name__)
 
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app):
-    # Load the model in a background thread so the port binds immediately.
-    # Render kills the process if the port doesn't open fast enough.
-    import threading
-    def _preload():
-        logger.info("Loading embedding model...")
-        from app.retrieval.embeddings import _model
-        _model()
-        logger.info("Embedding model ready.")
-    threading.Thread(target=_preload, daemon=True).start()
-    yield
-
-app = FastAPI(title="Faisneis", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Faisneis", version="0.1.0")
 
 _origins = ["http://localhost:3000"]
 if settings.allowed_origins:
