@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = Field(default=None)
 
     claude_model: str = Field(default="claude-sonnet-4-6")
-    gemini_model: str = Field(default="gemini-2.0-flash")
+    gemini_model: str = Field(default="gemini-1.5-flash")
 
     embed_model: str = Field(default="all-MiniLM-L6-v2")
 
