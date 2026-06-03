@@ -13,11 +13,15 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app):
-    # Pre-load the embedding model at startup so the first request isn't slow
-    logger.info("Loading embedding model...")
-    from app.retrieval.embeddings import _model
-    _model()
-    logger.info("Embedding model ready.")
+    # Load the model in a background thread so the port binds immediately.
+    # Render kills the process if the port doesn't open fast enough.
+    import threading
+    def _preload():
+        logger.info("Loading embedding model...")
+        from app.retrieval.embeddings import _model
+        _model()
+        logger.info("Embedding model ready.")
+    threading.Thread(target=_preload, daemon=True).start()
     yield
 
 app = FastAPI(title="Faisneis", version="0.1.0", lifespan=lifespan)
