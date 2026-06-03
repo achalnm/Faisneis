@@ -66,22 +66,21 @@ class _ClaudeLLM(LLM):
 
 class _GeminiLLM(LLM):
     def __init__(self):
-        import google.generativeai as genai
-        genai.configure(api_key=settings.google_api_key)
-        self._model = genai.GenerativeModel(
-            model_name=settings.gemini_model,
-            system_instruction=None,  # set per-call below
-        )
-        self._genai = genai
+        from google import genai
+        from google.genai import types
+        self._client = genai.Client(api_key=settings.google_api_key)
+        self._types = types
+        self._model = settings.gemini_model
 
     def complete(self, system: str, user: str) -> str:
-        # Gemini's system instruction is set at model construction; we reconstruct
-        # per call to allow different system prompts across calls.
-        model = self._genai.GenerativeModel(
-            model_name=settings.gemini_model,
-            system_instruction=system,
+        resp = self._client.models.generate_content(
+            model=self._model,
+            contents=user,
+            config=self._types.GenerateContentConfig(
+                system_instruction=system,
+                max_output_tokens=4096,
+            ),
         )
-        resp = model.generate_content(user)
         return resp.text
 
 
