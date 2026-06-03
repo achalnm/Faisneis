@@ -23,15 +23,6 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(Exception)
-async def generic_error_handler(request: Request, exc: Exception):
-    logger.error("Unhandled error on %s: %s", request.url.path, exc, exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error", "detail": str(exc)[:200]},
-    )
-
-
 @app.get("/api/health")
 def health():
     return {"status": "ok", "provider": settings.llm_provider}
@@ -48,15 +39,9 @@ def ask(body: AskRequest):
 
     provider = settings.llm_provider
     if provider == "claude" and not settings.anthropic_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="ANTHROPIC_API_KEY is not set. Add it to backend/.env.",
-        )
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set.")
     if provider == "gemini" and not settings.google_api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="GOOGLE_API_KEY is not set. Add it to backend/.env.",
-        )
+        raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not set.")
 
     try:
         from app.agent.pipeline import answer
@@ -65,7 +50,7 @@ def ask(body: AskRequest):
     except Exception as exc:
         msg = str(exc)
         if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-            raise HTTPException(status_code=429, detail="AI quota exceeded — try again in a minute.")
+            raise HTTPException(status_code=429, detail="AI quota exceeded, try again in a minute.")
         raise HTTPException(status_code=500, detail=msg[:300])
 
 

@@ -1,12 +1,3 @@
-"""
-Copies all vectors from the local Chroma store into Pinecone.
-Run once after setting PINECONE_API_KEY in .env.
-
-    python scripts/migrate_to_pinecone.py
-
-Idempotent: Pinecone upsert overwrites on duplicate IDs so re-running is safe.
-"""
-
 import sys
 import time
 import logging
@@ -20,7 +11,7 @@ logger = logging.getLogger(__name__)
 from app.config import settings
 
 if not settings.pinecone_api_key:
-    print("PINECONE_API_KEY not set in .env — nothing to do")
+    print("PINECONE_API_KEY not set in .env")
     sys.exit(1)
 
 import chromadb
@@ -31,7 +22,7 @@ BATCH = 100
 
 
 def main():
-    logger.info("Reading from local Chroma at %s", settings.chroma_dir)
+    logger.info("Reading from Chroma at %s", settings.chroma_dir)
     client = chromadb.PersistentClient(
         path=str(settings.chroma_dir),
         settings=ChromaSettings(anonymized_telemetry=False),
@@ -53,7 +44,6 @@ def main():
         time.sleep(10)
 
     idx = pc.Index(settings.pinecone_index)
-    logger.info("Uploading to Pinecone index %s", settings.pinecone_index)
 
     uploaded = 0
     offset = 0
@@ -76,7 +66,7 @@ def main():
         ):
             m = dict(meta)
             m["text"] = (doc or "")[:1000]
-            records.append({"id": rid, "values": list(vec), "metadata": m})
+            records.append({"id": rid, "values": [float(x) for x in vec], "metadata": m})
 
         idx.upsert(vectors=records)
         uploaded += len(records)
@@ -86,8 +76,6 @@ def main():
             logger.info("Uploaded %d / %d", uploaded, total)
 
     logger.info("Done. %d vectors in Pinecone.", uploaded)
-    stats = idx.describe_index_stats()
-    logger.info("Index reports %d total vectors", stats.total_vector_count)
 
 
 if __name__ == "__main__":
