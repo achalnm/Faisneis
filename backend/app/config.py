@@ -33,4 +33,8 @@ class Settings(BaseSettings):
     chroma_dir: Path = Field(default=Path("./data/chroma"))
     cache_dir: Path = Field(default=Path("./data/cache"))
 
+    # Comma-separated extra origins to allow in CORS, e.g. your Vercel URL.
+    # localhost:3000 is always included.
+    allowed_origins: str = Field(default="")
+
 settings = Settings()
