@@ -67,8 +67,8 @@ def _format_speeches(chunks: list[dict]) -> str:
         m = c.get("metadata", {})
         # Truncate long speeches to keep the prompt compact
         text = c.get("text", "")
-        if len(text) > 600:
-            text = text[:597] + "..."
+        if len(text) > 400:
+            text = text[:397] + "..."
         lines.append(
             f"[S{i}] {m.get('speaker_name','?')} ({m.get('debate_date','?')}, "
             f"{m.get('chamber','?')}, {m.get('debate_title','?')})\n"
