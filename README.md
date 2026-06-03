@@ -5,8 +5,9 @@ official economic statistics from the Central Statistics Office. Ask a question 
 plain English and get a grounded, cited answer drawn from Oireachtas transcripts and
 live CSO data.
 
-Every number and every quote traces to an openable source. A narrow tool that never
-lies is the goal.
+Every number and every quote traces to an openable source.
+
+**Live:** [faisneis.vercel.app](https://faisneis.vercel.app)
 
 ---
 
@@ -16,39 +17,38 @@ lies is the goal.
 - Fetches live CSO statistics for economic topics (inflation, employment, housing, etc.)
 - Routes questions to the right tools, retrieves evidence, and synthesises a cited answer
 - Shows the router's reasoning so you can see why it answered the way it did
-- Renders a time-series chart when statistical data is present
+- Renders a time-series chart when statistical data is available
 
-Example questions it handles well:
+Example questions:
 
-- "What did Irish politicians say about housing supply in 2024, and did the CSO data support their claims?"
-- "How often has the cost of living been raised in the Dáil this year, and what do the inflation figures actually show?"
+- "What did Irish politicians say about housing supply in 2024?"
+- "How often has the cost of living been raised in the Dáil this year, and what do the inflation figures show?"
 - "What has the Minister for Finance said about employment, and how does that compare to the CSO unemployment rate?"
 
 ---
 
-## Requirements
+## Stack
 
-- Python 3.11+
-- Node.js 18+
-- An API key for either Anthropic (Claude) or Google (Gemini)
+| Layer | Technology |
+| --- | --- |
+| Frontend | Next.js, Tailwind CSS, Recharts — deployed on Vercel |
+| Backend | FastAPI, Python 3.11 — deployed on Render |
+| Vector store | Pinecone (serverless) |
+| Embeddings | fastembed / ONNX (all-MiniLM-L6-v2, no GPU needed) |
+| LLM | Gemini 2.5 Flash or Claude (configurable) |
+| Data | Oireachtas API + CSO PxStat API |
 
 ---
 
-## Setup
+## Local setup
 
 ### Backend
 
 ```bash
 cd backend
-pip install fastapi uvicorn[standard] httpx lxml pandas pydantic pydantic-settings \
-    sentence-transformers chromadb python-dotenv anthropic google-generativeai
-```
-
-Copy the example env file and fill in your key:
-
-```bash
-cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY or GOOGLE_API_KEY
+pip install -r requirements.txt
+cp .env.example .env   # fill in your API keys
+uvicorn app.main:app --reload --port 8000
 ```
 
 ### Frontend
@@ -56,103 +56,72 @@ cp .env.example .env
 ```bash
 cd frontend
 npm install
+npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
 ## Configuration
 
-All settings live in `backend/.env`. The main ones:
+All settings live in `backend/.env`:
 
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_PROVIDER` | `claude` | Which LLM to use. Set to `claude` or `gemini`. |
-| `ANTHROPIC_API_KEY` | | Required when `LLM_PROVIDER=claude`. Note: this is the API key from console.anthropic.com, not a Claude.ai Pro subscription. |
-| `GOOGLE_API_KEY` | | Required when `LLM_PROVIDER=gemini`. |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Optional model override. |
-| `EMBED_MODEL` | `all-MiniLM-L6-v2` | Local embedding model. Swap to `BAAI/bge-small-en-v1.5` for better quality. |
-| `INGEST_DATE_START` | `2020-01-01` | Start of the ingestion window. |
-| `INGEST_DATE_END` | today | End of the ingestion window. Leave blank for today. |
-| `CHROMA_DIR` | `./data/chroma` | Where the vector store lives on disk. |
-| `CACHE_DIR` | `./data/cache` | Raw API response cache. Re-runs never re-fetch. |
-
-To switch from Claude to Gemini, update `.env`:
-
-```
-LLM_PROVIDER=gemini
-GOOGLE_API_KEY=AIza...
-```
-
-No code changes needed.
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `gemini` | `gemini` or `claude` |
+| `GOOGLE_API_KEY` | | Required when using Gemini |
+| `ANTHROPIC_API_KEY` | | Required when using Claude |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Optional model override |
+| `PINECONE_API_KEY` | | Required for cloud vector store |
+| `PINECONE_INDEX` | `faisneis-speeches` | Pinecone index name |
+| `INGEST_DATE_START` | `2020-01-01` | Start of ingestion window |
+| `INGEST_DATE_END` | today | End of ingestion window |
+| `CACHE_DIR` | `./data/cache` | Disk cache for API responses |
 
 ---
 
-## Running ingestion
+## Ingestion
 
-Run from `backend/`:
+Run from `backend/` to populate the vector store:
 
 ```bash
-# Single month (good first run to verify quality)
+# Dry run first to check what would be added
+python -m app.ingest.run_ingest --dry-run
+
+# Single month (fast, good for testing)
 python -m app.ingest.run_ingest --chamber dail --date-start 2024-01-01 --date-end 2024-01-31
 
 # Full window, both chambers
 python -m app.ingest.run_ingest --chamber both
-
-# Dry run to see what would be added
-python -m app.ingest.run_ingest --dry-run
 ```
 
-The ingest is idempotent. Re-running skips already-loaded speech IDs. Raw JSON and
-XML responses are cached in `CACHE_DIR` so re-runs are fast even if they need to
-re-parse.
-
-Embedding is done locally with sentence-transformers (no API cost). The first run
-downloads the model (~80 MB) from HuggingFace.
-
----
-
-## Running the app
-
-Terminal 1 (backend):
-
-```bash
-cd backend
-uvicorn app.main:app --reload --port 8000
-```
-
-Terminal 2 (frontend):
-
-```bash
-cd frontend
-npm run dev
-```
-
-Open http://localhost:3000.
+Ingestion is idempotent — re-running skips already-loaded speech IDs. API responses
+are cached to `CACHE_DIR` so re-runs are fast.
 
 ---
 
 ## API
 
-### POST /api/ask
+### `POST /api/ask`
 
 ```json
 { "question": "What did politicians say about housing supply?" }
 ```
 
-Returns an `AskResponse` with `tool_plan`, `answer`, and optional `chart_data`.
+Returns `tool_plan`, `answer` (with citations), and optional `chart_data`.
 
-### GET /api/debug/speech-search?q=...
+### `GET /api/health`
 
-Runs a semantic search over the Chroma store and returns the top matches. Good for
-checking ingestion quality.
+Returns `{ "status": "ok", "provider": "gemini" }`.
 
-### GET /api/debug/stats-search?q=...
+### `GET /api/debug/speech-search?q=...`
 
-Searches the CSO catalog by topic and returns candidate matrix codes.
+Runs a semantic search and returns the top matching speech chunks.
 
-### GET /api/health
+### `GET /api/debug/stats-search?q=...`
 
-Returns `{ "status": "ok", "provider": "claude" }`.
+Searches the CSO catalog and returns candidate matrix codes.
 
 ---
 
@@ -163,27 +132,14 @@ cd backend
 python eval/run_eval.py
 ```
 
-Runs 10 golden questions and checks:
-
-1. Every citation marker in the answer has a matching citation object.
-2. "Unanswerable" questions get low or medium confidence with an honest caveat.
-3. Stat citation values are numeric and within a plausible range.
-
----
-
-## Data sources and attribution
-
-Parliamentary debates are published by the Houses of the Oireachtas under the
-Open Data PSI Licence. Source: [oireachtas.ie](https://www.oireachtas.ie).
-
-Statistics are published by the Central Statistics Office.
-Copyright Central Statistics Office, Ireland. Source: [cso.ie](https://www.cso.ie).
+Runs the golden question set and checks citation completeness, confidence calibration,
+and numeric plausibility of stat citations.
 
 ---
 
 ## Project layout
 
-```
+```text
 faisneis/
   backend/
     app/
@@ -191,12 +147,22 @@ faisneis/
       config.py         Settings from .env
       schemas.py        Pydantic models
       ingest/           Oireachtas client, AKN parser, chunker, ingest CLI
-      retrieval/        Chroma wrapper and embeddings
+      retrieval/        Pinecone/Chroma vector store and embeddings
       stats/            CSO client, catalog search, JSON-stat parser
       agent/            LLM abstraction, router, synthesizer, pipeline
     eval/               Golden question set and eval harness
-    scripts/            Smoke test, LLM verification script
+    scripts/            Migration and verification utilities
   frontend/
     app/                Next.js App Router pages and API client
     components/         AnswerView, SourcesPanel, StatChart
 ```
+
+---
+
+## Data sources
+
+Parliamentary debates published by the Houses of the Oireachtas under the
+[Open Data PSI Licence](https://www.oireachtas.ie/en/open-data/).
+
+Statistics published by the Central Statistics Office.
+© Central Statistics Office, Ireland. [cso.ie](https://www.cso.ie)
