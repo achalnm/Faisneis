@@ -18,6 +18,13 @@ class Settings(BaseSettings):
 
     gemini_model: str = Field(default="gemini-2.5-flash")
 
+    def model_post_init(self, __context):
+        # Env vars set to blank string should fall back to the coded defaults
+        if not self.gemini_model:
+            self.gemini_model = "gemini-2.5-flash"
+        self.chroma_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+
     embed_model: str = Field(default="all-MiniLM-L6-v2")
 
     ingest_date_start: str = Field(default="2020-01-01")
@@ -25,10 +32,5 @@ class Settings(BaseSettings):
 
     chroma_dir: Path = Field(default=Path("./data/chroma"))
     cache_dir: Path = Field(default=Path("./data/cache"))
-
-    def model_post_init(self, __context):
-        self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
 
 settings = Settings()
