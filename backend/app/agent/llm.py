@@ -1,9 +1,3 @@
-"""
-Provider-agnostic LLM interface. The rest of the codebase calls this and
-never touches provider SDKs directly. Switch providers by changing LLM_PROVIDER
-in .env; no other code changes needed.
-"""
-
 import json
 import logging
 import re
@@ -16,14 +10,9 @@ logger = logging.getLogger(__name__)
 
 class LLM:
     def complete(self, system: str, user: str) -> str:
-        """Call the LLM and return the response text."""
         raise NotImplementedError
 
     def complete_json(self, system: str, user: str, schema_hint: str = "") -> dict:
-        """
-        Call the LLM and parse the response as JSON. The prompt instructs
-        the model to output raw JSON only. Retries once on parse failure.
-        """
         json_system = (
             system
             + "\n\nRespond with valid JSON only. No prose, no markdown fences, no explanation."
@@ -34,7 +23,6 @@ class LLM:
         for attempt in range(2):
             raw = self.complete(json_system, user)
             raw = raw.strip()
-            # Strip code fences if the model wrapped the output anyway
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
             try:
@@ -45,7 +33,7 @@ class LLM:
                     continue
                 logger.error("JSON parse failed after retry. Raw response:\n%s", raw[:500])
                 raise ValueError(f"LLM did not return valid JSON: {e}") from e
-        return {}  # unreachable
+        return {}
 
 
 class _ClaudeLLM(LLM):

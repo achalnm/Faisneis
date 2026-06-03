@@ -1,9 +1,3 @@
-"""
-Takes a user question and produces a ToolPlan by calling the LLM once.
-The plan says whether to search speeches, fetch stats, or both, and what
-to search for. Keeping this as one LLM call makes it easy to inspect and debug.
-"""
-
 import logging
 from app.agent.llm import get_llm
 from app.schemas import ToolPlan
@@ -43,7 +37,6 @@ def route(question: str) -> ToolPlan:
     llm = get_llm()
     raw = llm.complete_json(_SYSTEM, question, schema_hint=_SCHEMA)
 
-    # Normalise and validate
     intent = raw.get("intent", "both")
     if intent not in ("speech_only", "stats_only", "both"):
         intent = "both"
