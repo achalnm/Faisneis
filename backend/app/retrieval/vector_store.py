@@ -92,32 +92,29 @@ def query(
     col = _collection()
     where: dict[str, Any] | None = None
 
+    # Chroma 1.x only supports $eq on strings. Date ranges and speaker filters
+    # are applied in Python after retrieval. Pull more results than k so there
+    # are enough candidates once post-filtering is done.
+    date_start = filters.get("date_start") if filters else None
+    date_end = filters.get("date_end") if filters else None
+    speaker_filter = filters.get("speaker_name") if filters else None
+
     if filters:
         clauses: list[dict] = []
-
-        if "date_start" in filters and "date_end" in filters:
-            clauses.append({"debate_date": {"$gte": filters["date_start"]}})
-            clauses.append({"debate_date": {"$lte": filters["date_end"]}})
-        elif "date_start" in filters:
-            clauses.append({"debate_date": {"$gte": filters["date_start"]}})
-        elif "date_end" in filters:
-            clauses.append({"debate_date": {"$lte": filters["date_end"]}})
-
         if "chamber" in filters:
             clauses.append({"chamber": {"$eq": filters["chamber"]}})
-
-        if "speaker_name" in filters:
-            clauses.append({"speaker_name": {"$eq": filters["speaker_name"]}})
-
         if len(clauses) == 1:
             where = clauses[0]
         elif len(clauses) > 1:
             where = {"$and": clauses}
 
+    # Fetch more candidates when we know post-filtering will drop some
+    fetch_k = k * 4 if (date_start or date_end or speaker_filter) else k
+
     query_vec = embed_one(text)
     kwargs: dict[str, Any] = {
         "query_embeddings": [query_vec],
-        "n_results": k,
+        "n_results": min(fetch_k, col.count() or 1),
         "include": ["documents", "metadatas", "distances"],
     }
     if where:
@@ -135,7 +132,17 @@ def query(
         results["metadatas"][0],
         results["distances"][0],
     ):
+        d = meta.get("debate_date", "")
+        if date_start and d < date_start:
+            continue
+        if date_end and d > date_end:
+            continue
+        if speaker_filter and meta.get("speaker_name", "").lower() != speaker_filter.lower():
+            continue
         out.append({"text": doc, "metadata": meta, "distance": dist})
+        if len(out) >= k:
+            break
+
     return out
 
 

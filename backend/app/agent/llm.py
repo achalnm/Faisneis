@@ -78,7 +78,7 @@ class _GeminiLLM(LLM):
             contents=user,
             config=self._types.GenerateContentConfig(
                 system_instruction=system,
-                max_output_tokens=4096,
+                max_output_tokens=8192,
             ),
         )
         return resp.text
