@@ -19,25 +19,29 @@ class Settings(BaseSettings):
     claude_model: str = Field(default="claude-sonnet-4-6")
     gemini_model: str = Field(default="gemini-2.5-flash")
 
-    def model_post_init(self, __context):
-        # Env vars set to blank string should fall back to the coded defaults
-        if not self.claude_model:
-            self.claude_model = "claude-sonnet-4-6"
-        if not self.gemini_model:
-            self.gemini_model = "gemini-2.5-flash"
-        self.chroma_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-
     embed_model: str = Field(default="all-MiniLM-L6-v2")
 
     ingest_date_start: str = Field(default="2020-01-01")
     ingest_date_end: Optional[str] = Field(default=None)
 
+    # Pinecone replaces local Chroma for cloud deployments
+    pinecone_api_key: Optional[str] = Field(default=None)
+    pinecone_index: str = Field(default="faisneis-speeches")
+
+    # Kept for local dev / migration scripts
     chroma_dir: Path = Field(default=Path("./data/chroma"))
     cache_dir: Path = Field(default=Path("./data/cache"))
 
-    # Comma-separated extra origins to allow in CORS, e.g. your Vercel URL.
-    # localhost:3000 is always included.
     allowed_origins: str = Field(default="")
+
+    def model_post_init(self, __context):
+        if not self.claude_model:
+            self.claude_model = "claude-sonnet-4-6"
+        if not self.gemini_model:
+            self.gemini_model = "gemini-2.5-flash"
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if not self.pinecone_api_key:
+            self.chroma_dir.mkdir(parents=True, exist_ok=True)
+
 
 settings = Settings()
