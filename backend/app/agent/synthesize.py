@@ -1,9 +1,3 @@
-"""
-Takes retrieved speech chunks and fetched stat series and writes a grounded,
-cited answer. The synthesis prompt enforces strict citation discipline: every
-claim must trace to something in the provided context. No invention.
-"""
-
 import json
 import logging
 from app.agent.llm import get_llm
@@ -65,7 +59,6 @@ def _format_speeches(chunks: list[dict]) -> str:
     lines = []
     for i, c in enumerate(chunks, start=1):
         m = c.get("metadata", {})
-        # Truncate long speeches to keep the prompt compact
         text = c.get("text", "")
         if len(text) > 400:
             text = text[:397] + "..."
@@ -85,11 +78,8 @@ def _format_stats(stat_results: list[dict]) -> str:
     lines = []
     for i, sr in enumerate(stat_results, start=1):
         series = sr.get("series", [])
-        # Show a concise summary: last few points
         sample = series[-6:] if len(series) > 6 else series
-        sample_str = ", ".join(
-            f"{p['period']}={p['value']}" for p in sample
-        )
+        sample_str = ", ".join(f"{p['period']}={p['value']}" for p in sample)
         lines.append(
             f"[C{i}] {sr.get('title','?')} (matrix: {sr.get('matrix','?')})\n"
             f"Units: {sr.get('units','?')}\n"
@@ -99,11 +89,7 @@ def _format_stats(stat_results: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def synthesize(
-    question: str,
-    speech_chunks: list[dict],
-    stat_results: list[dict],
-) -> Answer:
+def synthesize(question: str, speech_chunks: list[dict], stat_results: list[dict]) -> Answer:
     speeches_text = _format_speeches(speech_chunks)
     stats_text = _format_stats(stat_results)
 
@@ -123,15 +109,12 @@ citations and [C1],[C2] for stat citations. Respond with JSON only.
     llm = get_llm()
     raw = llm.complete_json(_SYSTEM, user_prompt)
 
-    # Build citation objects, validating each field
     speech_cits = []
     for sc in raw.get("speech_citations", []):
         try:
-            # Find the matching chunk to pull reliable metadata
             ref_num = int(sc.get("ref", "S0").lstrip("S")) - 1
             chunk = speech_chunks[ref_num] if 0 <= ref_num < len(speech_chunks) else {}
             meta = chunk.get("metadata", {})
-
             speech_cits.append(
                 SpeechCitation(
                     ref=sc.get("ref", ""),
@@ -151,7 +134,6 @@ citations and [C1],[C2] for stat citations. Respond with JSON only.
         try:
             ref_num = int(sc.get("ref", "C0").lstrip("C")) - 1
             sr = stat_results[ref_num] if 0 <= ref_num < len(stat_results) else {}
-
             stat_cits.append(
                 StatCitation(
                     ref=sc.get("ref", ""),
