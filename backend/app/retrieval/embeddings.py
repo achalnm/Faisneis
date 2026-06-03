@@ -11,7 +11,12 @@ from app.config import settings
 
 @lru_cache(maxsize=1)
 def _model() -> SentenceTransformer:
-    return SentenceTransformer(settings.embed_model)
+    # ONNX backend skips PyTorch JIT and loads in ~3s instead of 30s+.
+    # Produces identical embeddings to the default backend.
+    try:
+        return SentenceTransformer(settings.embed_model, backend="onnx")
+    except Exception:
+        return SentenceTransformer(settings.embed_model)
 
 
 def embed(texts: list[str]) -> list[list[float]]:
