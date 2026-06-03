@@ -1,16 +1,11 @@
 """
-Chroma persistent store for speech chunks. One collection: "speeches".
-
-Metadata stored per chunk mirrors SpeechChunk fields. Filters on query
-can narrow by debate_date range, chamber, or speaker_name.
+Vector store abstraction. Uses Pinecone when PINECONE_API_KEY is set,
+falls back to local Chroma otherwise. Local dev keeps working without
+any cloud credentials.
 """
 
 import logging
-from functools import lru_cache
 from typing import Any
-
-import chromadb
-from chromadb.config import Settings as ChromaSettings
 
 from app.config import settings
 from app.schemas import SpeechChunk
@@ -18,103 +13,180 @@ from app.retrieval.embeddings import embed, embed_one
 
 logger = logging.getLogger(__name__)
 
-COLLECTION = "speeches"
-BATCH_SIZE = 128
+BATCH_SIZE = 100
 
 
-@lru_cache(maxsize=1)
-def _client() -> chromadb.PersistentClient:
-    return chromadb.PersistentClient(
-        path=str(settings.chroma_dir),
-        settings=ChromaSettings(anonymized_telemetry=False),
-    )
+# ---------------------------------------------------------------------------
+# Pinecone backend
+# ---------------------------------------------------------------------------
+
+def _pinecone_index():
+    from pinecone import Pinecone, ServerlessSpec
+    pc = Pinecone(api_key=settings.pinecone_api_key)
+    existing = [i.name for i in pc.list_indexes()]
+    if settings.pinecone_index not in existing:
+        logger.info("Creating Pinecone index %s", settings.pinecone_index)
+        pc.create_index(
+            name=settings.pinecone_index,
+            dimension=384,
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+        )
+    return pc.Index(settings.pinecone_index)
 
 
-def _collection():
-    return _client().get_or_create_collection(
-        COLLECTION,
-        metadata={"hnsw:space": "cosine"},
-    )
-
-
-def existing_ids() -> set[str]:
-    col = _collection()
-    result = col.get(include=[])  # just IDs
-    return set(result["ids"])
-
-
-def add_chunks(chunks: list[SpeechChunk]) -> int:
-    if not chunks:
-        return 0
-
-    col = _collection()
+def _pc_add_chunks(chunks: list[SpeechChunk]) -> int:
+    idx = _pinecone_index()
     added = 0
-
     for i in range(0, len(chunks), BATCH_SIZE):
-        batch = chunks[i : i + BATCH_SIZE]
-        texts = [c.text for c in batch]
-        vectors = embed(texts)
-        ids = [c.speech_id for c in batch]
-        metadatas = [
+        batch = chunks[i: i + BATCH_SIZE]
+        vectors = embed([c.text for c in batch])
+        records = [
             {
-                "speaker_name": c.speaker_name,
-                "member_uri": c.member_uri or "",
-                "party": c.party or "",
-                "role": c.role or "",
-                "chamber": c.chamber,
-                "debate_title": c.debate_title,
-                "debate_date": c.debate_date,
-                "topic_section": c.topic_section or "",
-                "source_url": c.source_url,
+                "id": c.speech_id,
+                "values": v,
+                "metadata": {
+                    "text": c.text[:1000],
+                    "speaker_name": c.speaker_name,
+                    "member_uri": c.member_uri or "",
+                    "party": c.party or "",
+                    "role": c.role or "",
+                    "chamber": c.chamber,
+                    "debate_title": c.debate_title,
+                    "debate_date": c.debate_date,
+                    "topic_section": c.topic_section or "",
+                    "source_url": c.source_url,
+                },
             }
-            for c in batch
+            for c, v in zip(batch, vectors)
         ]
-        col.add(ids=ids, embeddings=vectors, documents=texts, metadatas=metadatas)
+        idx.upsert(vectors=records)
         added += len(batch)
-
     return added
 
 
-def query(
-    text: str,
-    k: int = 10,
-    filters: dict[str, Any] | None = None,
-) -> list[dict]:
-    """
-    Semantic search over speeches. Returns a list of result dicts, each
-    containing the document text, metadata, and distance.
+def _pc_existing_ids() -> set[str]:
+    # Pinecone doesn't support listing all IDs cheaply; return empty set
+    # and rely on upsert idempotency instead
+    return set()
 
-    filters can include:
-      date_start / date_end  -- ISO strings for debate_date range
-      chamber                -- "dail" or "seanad"
-      speaker_name           -- exact match
-    """
-    col = _collection()
-    where: dict[str, Any] | None = None
 
-    # Chroma 1.x only supports $eq on strings. Date ranges and speaker filters
-    # are applied in Python after retrieval. Pull more results than k so there
-    # are enough candidates once post-filtering is done.
+def _pc_query(text: str, k: int, filters: dict | None) -> list[dict]:
+    idx = _pinecone_index()
+    q_vec = embed_one(text)
+
+    pc_filter: dict | None = None
     date_start = filters.get("date_start") if filters else None
     date_end = filters.get("date_end") if filters else None
-    speaker_filter = filters.get("speaker_name") if filters else None
+    chamber = filters.get("chamber") if filters else None
+    speaker = filters.get("speaker_name") if filters else None
 
-    if filters:
-        clauses: list[dict] = []
-        if "chamber" in filters:
-            clauses.append({"chamber": {"$eq": filters["chamber"]}})
-        if len(clauses) == 1:
-            where = clauses[0]
-        elif len(clauses) > 1:
-            where = {"$and": clauses}
+    clauses = {}
+    if chamber:
+        clauses["chamber"] = {"$eq": chamber}
+    if speaker:
+        clauses["speaker_name"] = {"$eq": speaker}
+    if clauses:
+        pc_filter = clauses
 
-    # Fetch more candidates when we know post-filtering will drop some
-    fetch_k = k * 4 if (date_start or date_end or speaker_filter) else k
+    fetch_k = k * 4 if (date_start or date_end) else k
+    resp = idx.query(vector=q_vec, top_k=fetch_k, include_metadata=True, filter=pc_filter)
 
-    query_vec = embed_one(text)
+    out = []
+    for match in resp.matches:
+        meta = match.metadata or {}
+        d = meta.get("debate_date", "")
+        if date_start and d < date_start:
+            continue
+        if date_end and d > date_end:
+            continue
+        out.append({
+            "text": meta.get("text", ""),
+            "metadata": {k: v for k, v in meta.items() if k != "text"},
+            "distance": 1 - match.score,
+        })
+        if len(out) >= k:
+            break
+    return out
+
+
+def _pc_count() -> int:
+    try:
+        stats = _pinecone_index().describe_index_stats()
+        return stats.total_vector_count
+    except Exception:
+        return -1
+
+
+# ---------------------------------------------------------------------------
+# Chroma backend (local dev)
+# ---------------------------------------------------------------------------
+
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def _chroma_collection():
+    import chromadb
+    from chromadb.config import Settings as ChromaSettings
+    client = chromadb.PersistentClient(
+        path=str(settings.chroma_dir),
+        settings=ChromaSettings(anonymized_telemetry=False),
+    )
+    return client.get_or_create_collection(
+        "speeches", metadata={"hnsw:space": "cosine"}
+    )
+
+
+def _chroma_add_chunks(chunks: list[SpeechChunk]) -> int:
+    col = _chroma_collection()
+    added = 0
+    for i in range(0, len(chunks), BATCH_SIZE):
+        batch = chunks[i: i + BATCH_SIZE]
+        vectors = embed([c.text for c in batch])
+        col.add(
+            ids=[c.speech_id for c in batch],
+            embeddings=vectors,
+            documents=[c.text for c in batch],
+            metadatas=[
+                {
+                    "speaker_name": c.speaker_name,
+                    "member_uri": c.member_uri or "",
+                    "party": c.party or "",
+                    "role": c.role or "",
+                    "chamber": c.chamber,
+                    "debate_title": c.debate_title,
+                    "debate_date": c.debate_date,
+                    "topic_section": c.topic_section or "",
+                    "source_url": c.source_url,
+                }
+                for c in batch
+            ],
+        )
+        added += len(batch)
+    return added
+
+
+def _chroma_existing_ids() -> set[str]:
+    return set(_chroma_collection().get(include=[])["ids"])
+
+
+def _chroma_query(text: str, k: int, filters: dict | None) -> list[dict]:
+    col = _chroma_collection()
+    date_start = filters.get("date_start") if filters else None
+    date_end = filters.get("date_end") if filters else None
+    speaker = filters.get("speaker_name") if filters else None
+    chamber = filters.get("chamber") if filters else None
+
+    where = None
+    if chamber:
+        where = {"chamber": {"$eq": chamber}}
+
+    fetch_k = min(k * 4 if (date_start or date_end or speaker) else k, col.count() or 1)
+    q_vec = embed_one(text)
+
     kwargs: dict[str, Any] = {
-        "query_embeddings": [query_vec],
-        "n_results": min(fetch_k, col.count() or 1),
+        "query_embeddings": [q_vec],
+        "n_results": fetch_k,
         "include": ["documents", "metadatas", "distances"],
     }
     if where:
@@ -137,14 +209,45 @@ def query(
             continue
         if date_end and d > date_end:
             continue
-        if speaker_filter and meta.get("speaker_name", "").lower() != speaker_filter.lower():
+        if speaker and meta.get("speaker_name", "").lower() != speaker.lower():
             continue
         out.append({"text": doc, "metadata": meta, "distance": dist})
         if len(out) >= k:
             break
-
     return out
 
 
+def _chroma_count() -> int:
+    return _chroma_collection().count()
+
+
+# ---------------------------------------------------------------------------
+# Public API — callers never know which backend is active
+# ---------------------------------------------------------------------------
+
+def _use_pinecone() -> bool:
+    return bool(settings.pinecone_api_key)
+
+
+def existing_ids() -> set[str]:
+    if _use_pinecone():
+        return _pc_existing_ids()
+    return _chroma_existing_ids()
+
+
+def add_chunks(chunks: list[SpeechChunk]) -> int:
+    if _use_pinecone():
+        return _pc_add_chunks(chunks)
+    return _chroma_add_chunks(chunks)
+
+
+def query(text: str, k: int = 10, filters: dict[str, Any] | None = None) -> list[dict]:
+    if _use_pinecone():
+        return _pc_query(text, k, filters)
+    return _chroma_query(text, k, filters)
+
+
 def count() -> int:
-    return _collection().count()
+    if _use_pinecone():
+        return _pc_count()
+    return _chroma_count()
