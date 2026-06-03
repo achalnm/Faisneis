@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = Field(default=None)
     google_api_key: Optional[str] = Field(default=None)
 
-    gemini_model: str = Field(default="gemini-2.0-flash")
+    gemini_model: str = Field(default="gemini-1.5-flash")
 
     embed_model: str = Field(default="all-MiniLM-L6-v2")
 
