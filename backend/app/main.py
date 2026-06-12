@@ -50,7 +50,9 @@ def ask(body: AskRequest):
     except Exception as exc:
         msg = str(exc)
         if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-            raise HTTPException(status_code=429, detail="AI quota exceeded, try again in a minute.")
+            raise HTTPException(status_code=429, detail="AI quota exceeded — try again in a minute.")
+        if "503" in msg or "UNAVAILABLE" in msg:
+            raise HTTPException(status_code=503, detail="AI model is temporarily overloaded — try again in a moment.")
         raise HTTPException(status_code=500, detail=msg[:300])
 
 
