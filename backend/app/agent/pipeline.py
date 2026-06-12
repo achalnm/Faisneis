@@ -92,7 +92,15 @@ def answer(question: str) -> AskResponse:
 
     if plan.intent in ("speech_only", "both") and plan.speech_query:
         filters = _build_speech_filters(plan)
-        speech_chunks = vector_query(plan.speech_query, k=TOP_K_SPEECHES, filters=filters or None)
+        # If all speakers are roles (not person names), strip them from the query
+        # so role words don't bias the semantic search away from topical content.
+        sq = plan.speech_query
+        if plan.speakers and not any(_is_person_name(s) for s in plan.speakers):
+            for speaker in plan.speakers:
+                sq = sq.replace(speaker, "").strip()
+        if not sq:
+            sq = plan.speech_query
+        speech_chunks = vector_query(sq, k=TOP_K_SPEECHES, filters=filters or None)
         logger.info("Retrieved %d speech chunks", len(speech_chunks))
 
     if plan.intent in ("stats_only", "both") and plan.stats_topics:
