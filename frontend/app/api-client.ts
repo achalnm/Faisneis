@@ -63,25 +63,40 @@ export interface AskResponse {
 }
 
 export async function askQuestion(question: string): Promise<AskResponse> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
-  try {
-    const res = await fetch(`${API_BASE}/api/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail ?? `Server error ${res.status}`);
-    }
-    return res.json();
-  } catch (e: unknown) {
-    if (e instanceof Error && e.name === "AbortError")
-      throw new Error("Request timed out — the server is waking up, please try again.");
-    throw e;
-  } finally {
-    clearTimeout(timeout);
+  // Uses SSE so heartbeat comments keep the connection alive through proxies/Render timeout.
+  const res = await fetch(`${API_BASE}/api/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `Server error ${res.status}`);
   }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    let eventType = "";
+    let dataLine = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+      else if (line.startsWith("data: ")) dataLine = line.slice(6).trim();
+      else if (line === "" && dataLine) {
+        const payload = JSON.parse(dataLine);
+        if (eventType === "error") throw new Error(payload.detail ?? "Server error");
+        if (eventType === "result") return payload as AskResponse;
+        eventType = "";
+        dataLine = "";
+      }
+    }
+  }
+  throw new Error("Stream ended without a result");
 }
