@@ -1,24 +1,18 @@
 import json
 import logging
-import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 from app.stats.cso_client import fetch_collection
-from app.retrieval.embeddings import embed, embed_one
 
 logger = logging.getLogger(__name__)
 
 CATALOG_FILE = "cso_catalog.json"
-TITLE_EMBEDDINGS_FILE = "cso_title_embeddings.json"
 
 
 def _catalog_path(cache_dir: Path) -> Path:
     return cache_dir / CATALOG_FILE
-
-
-def _embeddings_path(cache_dir: Path) -> Path:
-    return cache_dir / TITLE_EMBEDDINGS_FILE
 
 
 def build_catalog(cache_dir: Path, force: bool = False) -> list[dict]:
@@ -50,29 +44,6 @@ def build_catalog(cache_dir: Path, force: bool = False) -> list[dict]:
     return catalog
 
 
-def _load_or_build_embeddings(catalog: list[dict], cache_dir: Path) -> list[list[float]]:
-    ep = _embeddings_path(cache_dir)
-    if ep.exists():
-        stored = json.loads(ep.read_bytes())
-        if len(stored) == len(catalog):
-            return stored
-
-    logger.info("Embedding %d CSO table titles...", len(catalog))
-    titles = [c["title"] for c in catalog]
-    vecs = embed(titles)
-    ep.write_bytes(json.dumps(vecs).encode())
-    return vecs
-
-
-def _cosine_sim(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    na = sum(x * x for x in a) ** 0.5
-    nb = sum(x * x for x in b) ** 0.5
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
-
-
 def search_catalog(
     query: str,
     cache_dir: Path,
@@ -81,32 +52,18 @@ def search_catalog(
 ) -> list[dict]:
     if catalog is None:
         catalog = build_catalog(cache_dir)
-
     if not catalog:
         return []
 
-    kw = query.lower().split()
-
-    ep = _embeddings_path(cache_dir)
-    if ep.exists():
-        title_vecs = _load_or_build_embeddings(catalog, cache_dir)
-        q_vec = embed_one(query)
-        scored = [
-            (_cosine_sim(q_vec, tv), entry)
-            for tv, entry in zip(title_vecs, catalog)
-        ]
-        scored.sort(key=lambda x: x[0], reverse=True)
-        top = [e for _, e in scored[:top_k]]
-        best_score = scored[0][0] if scored else 0
-        if best_score < 0.35:
-            seen = {e["matrix"] for e in top}
-            for e in catalog:
-                if any(k in e["title"].lower() for k in kw) and e["matrix"] not in seen:
-                    top.append(e)
-                    seen.add(e["matrix"])
-        return top[:top_k]
-
-    return [e for e in catalog if any(k in e["title"].lower() for k in kw)][:top_k]
+    kw = [w for w in query.lower().split() if len(w) > 2]
+    scored = []
+    for entry in catalog:
+        title_lower = entry["title"].lower()
+        score = sum(1 for k in kw if k in title_lower)
+        if score > 0:
+            scored.append((score, entry))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [e for _, e in scored[:top_k]]
 
 
 _TOPIC_HINTS: dict[str, list[str]] = {
@@ -123,6 +80,8 @@ _TOPIC_HINTS: dict[str, list[str]] = {
     "earnings": ["EHQ01", "EHA01"],
     "rent": ["HPM09", "RIQ01"],
     "house prices": ["HPM09", "HPQ01"],
+    "immigration": ["PEA14", "PEA15"],
+    "population": ["PEA01", "PEA14"],
 }
 
 
