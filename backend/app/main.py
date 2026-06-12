@@ -71,15 +71,18 @@ async def ask(body: AskRequest):
             except asyncio.TimeoutError:
                 pass
 
-        if "err" in result_box:
-            msg = result_box["err"]
-            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-                yield f"event: error\ndata: {json.dumps({'detail': 'AI quota exceeded — try again in a minute.'})}\n\n"
-            else:
-                yield f"event: error\ndata: {json.dumps({'detail': msg[:300]})}\n\n"
-        else:
+        if "ok" in result_box:
             payload = result_box["ok"].model_dump()
             yield f"event: result\ndata: {json.dumps(payload)}\n\n"
+        else:
+            msg = result_box.get("err", "Unknown error")
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                detail = "AI quota exceeded — try again in a minute."
+            elif "503" in msg or "UNAVAILABLE" in msg:
+                detail = "AI model temporarily overloaded — try again in a moment."
+            else:
+                detail = msg[:300]
+            yield f"event: error\ndata: {json.dumps({'detail': detail})}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={
         "Cache-Control": "no-cache",
