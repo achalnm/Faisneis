@@ -1,7 +1,9 @@
+import asyncio
+import json
 import logging
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.config import settings
@@ -33,7 +35,7 @@ class AskRequest(BaseModel):
 
 
 @app.post("/api/ask")
-def ask(body: AskRequest):
+async def ask(body: AskRequest):
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
 
@@ -43,17 +45,46 @@ def ask(body: AskRequest):
     if provider == "gemini" and not settings.google_api_key:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not set.")
 
-    try:
-        from app.agent.pipeline import answer
-        result = answer(body.question)
-        return result
-    except Exception as exc:
-        msg = str(exc)
-        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-            raise HTTPException(status_code=429, detail="AI quota exceeded — try again in a minute.")
-        if "503" in msg or "UNAVAILABLE" in msg:
-            raise HTTPException(status_code=503, detail="AI model is temporarily overloaded — try again in a moment.")
-        raise HTTPException(status_code=500, detail=msg[:300])
+    async def stream():
+        # Send SSE heartbeat comments every 5 seconds to prevent proxy/Render timeouts.
+        # The final event is a "result" with the JSON payload.
+        loop = asyncio.get_event_loop()
+        done = asyncio.Event()
+        result_box = {}
+
+        def run_pipeline():
+            try:
+                from app.agent.pipeline import answer
+                result_box["ok"] = answer(body.question)
+            except Exception as exc:
+                result_box["err"] = str(exc)
+            finally:
+                loop.call_soon_threadsafe(done.set)
+
+        import threading
+        threading.Thread(target=run_pipeline, daemon=True).start()
+
+        while not done.is_set():
+            yield ": heartbeat\n\n"
+            try:
+                await asyncio.wait_for(asyncio.shield(done.wait()), timeout=5)
+            except asyncio.TimeoutError:
+                pass
+
+        if "err" in result_box:
+            msg = result_box["err"]
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                yield f"event: error\ndata: {json.dumps({'detail': 'AI quota exceeded — try again in a minute.'})}\n\n"
+            else:
+                yield f"event: error\ndata: {json.dumps({'detail': msg[:300]})}\n\n"
+        else:
+            payload = result_box["ok"].model_dump()
+            yield f"event: result\ndata: {json.dumps(payload)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
 
 
 @app.get("/api/debug/speech-search")
