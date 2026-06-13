@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import time
 from functools import lru_cache
 
 from app.config import settings
@@ -60,15 +61,25 @@ class _GeminiLLM(LLM):
         self._model = settings.gemini_model
 
     def complete(self, system: str, user: str) -> str:
-        resp = self._client.models.generate_content(
-            model=self._model,
-            contents=user,
-            config=self._types.GenerateContentConfig(
-                system_instruction=system,
-                max_output_tokens=8192,
-            ),
-        )
-        return resp.text
+        for attempt in range(3):
+            try:
+                resp = self._client.models.generate_content(
+                    model=self._model,
+                    contents=user,
+                    config=self._types.GenerateContentConfig(
+                        system_instruction=system,
+                        max_output_tokens=8192,
+                    ),
+                )
+                return resp.text
+            except Exception as e:
+                msg = str(e)
+                if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) and attempt < 2:
+                    wait = 15 * (attempt + 1)
+                    logger.warning("Gemini 429, retrying in %ds (attempt %d)", wait, attempt + 1)
+                    time.sleep(wait)
+                    continue
+                raise
 
 
 @lru_cache(maxsize=1)
