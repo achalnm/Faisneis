@@ -77,6 +77,8 @@ export async function askQuestion(question: string): Promise<AskResponse> {
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let buf = "";
+  let eventType = "";
+  let dataLine = "";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -84,12 +86,12 @@ export async function askQuestion(question: string): Promise<AskResponse> {
     buf += decoder.decode(value, { stream: true });
     const lines = buf.split("\n");
     buf = lines.pop() ?? "";
-    let eventType = "";
-    let dataLine = "";
     for (const line of lines) {
-      if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-      else if (line.startsWith("data: ")) dataLine = line.slice(6).trim();
-      else if (line === "" && dataLine) {
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        dataLine = line.slice(6).trim();
+      } else if (line === "" && dataLine) {
         const payload = JSON.parse(dataLine);
         if (eventType === "error") throw new Error(payload.detail ?? "Server error");
         if (eventType === "result") return payload as AskResponse;
@@ -98,5 +100,5 @@ export async function askQuestion(question: string): Promise<AskResponse> {
       }
     }
   }
-  throw new Error("Stream ended without a result");
+  throw new Error("Server closed the connection — please try again.");
 }
