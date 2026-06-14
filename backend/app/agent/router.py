@@ -12,6 +12,8 @@ Rules:
 - Use intent "speech_only" if the question is purely about what politicians said.
 - Use intent "stats_only" if the question is purely about official statistics.
 - Use intent "both" if it involves both political statements and statistical evidence.
+- If the question asks your personal opinion ("what do you think", "do you agree"), treat it as a search for relevant parliamentary debate on that topic instead.
+- If the question is completely unrelated to Irish politics or economics (sports results, entertainment, etc), still attempt a speech search — the synthesizer will handle it gracefully.
 - speech_query should be a short phrase optimised for semantic search over debate transcripts.
 - stats_topics should list the economic topic(s) to look up (e.g. "inflation", "unemployment").
 - date_start / date_end should be ISO dates (YYYY-MM-DD) if the question implies a time window, else null.

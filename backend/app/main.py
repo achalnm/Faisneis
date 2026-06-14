@@ -72,8 +72,15 @@ async def ask(body: AskRequest):
                 pass
 
         if "ok" in result_box:
-            payload = result_box["ok"].model_dump()
-            yield f"event: result\ndata: {json.dumps(payload)}\n\n"
+            try:
+                payload = result_box["ok"].model_dump()
+                # Coerce numpy/non-standard floats that json.dumps can't handle
+                data_str = json.dumps(payload, default=lambda x: float(x) if hasattr(x, '__float__') else str(x))
+            except Exception as e:
+                logger.error("Serialization error: %s", e)
+                yield f"event: error\ndata: {json.dumps({'detail': f'Serialization error: {e}'})}\n\n"
+                return
+            yield f"event: result\ndata: {data_str}\n\n"
         else:
             msg = result_box.get("err", "Unknown error")
             if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
