@@ -75,7 +75,7 @@ class _GeminiLLM(LLM):
             except Exception as e:
                 msg = str(e)
                 if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) and attempt < 2:
-                    wait = 15 * (attempt + 1)
+                    wait = 30 * (attempt + 1)
                     logger.warning("Gemini 429, retrying in %ds (attempt %d)", wait, attempt + 1)
                     time.sleep(wait)
                     continue
