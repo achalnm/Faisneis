@@ -78,7 +78,7 @@ def _pc_query(text: str, k: int, filters: dict | None) -> list[dict]:
     if clauses:
         pc_filter = clauses
 
-    fetch_k = k * 4 if (date_start or date_end) else k
+    fetch_k = k * 4 if (date_start or date_end or speaker) else k
     resp = idx.query(vector=q_vec, top_k=fetch_k, include_metadata=True, filter=pc_filter)
 
     out = []
