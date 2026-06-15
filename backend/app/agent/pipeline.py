@@ -18,10 +18,12 @@ TOP_K_SPEECHES = 5
 
 _GREETINGS = {
     "hello", "hi", "hey", "hiya", "howya", "howdy",
-    "bye", "goodbye", "good bye", "see ya", "see you", "cya",
-    "thanks", "thank you", "thank you!", "thanks!", "cheers",
+    "hi there", "hello there", "hey there", "howdy there",
+    "bye", "goodbye", "good bye", "see ya", "see you", "cya", "later",
+    "thanks", "thank you", "thank you!", "thanks!", "cheers", "ta",
     "ok", "okay", "cool", "nice", "great", "good",
-    "help", "what can you do", "what do you do",
+    "help", "what can you do", "what do you do", "how does this work",
+    "test", "testing",
 }
 
 def _greeting_response() -> AskResponse:

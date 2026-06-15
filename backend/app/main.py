@@ -104,13 +104,15 @@ async def ask(body: AskRequest):
             _cache[ck] = (time.time(), data_str)
             yield f"event: result\ndata: {data_str}\n\n"
         else:
-            msg = result_box.get("err", "Unknown error")
-            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
-                detail = "AI quota exceeded — try again in a minute."
+            msg = result_box.get("err") or "Something went wrong — please try again."
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rate_limit" in msg.lower():
+                detail = "Too many requests — please wait a moment and try again."
             elif "503" in msg or "UNAVAILABLE" in msg:
                 detail = "AI model temporarily overloaded — try again in a moment."
+            elif msg == "Something went wrong — please try again.":
+                detail = msg
             else:
-                detail = msg[:300]
+                detail = "Something went wrong — please try again."
             yield f"event: error\ndata: {json.dumps({'detail': detail})}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={
