@@ -84,9 +84,6 @@ def _quick_reply(text: str, rationale: str) -> AskResponse:
 
 def _classify(q: str) -> str | None:
     n = q.lower().strip().rstrip("!?.,")
-    # single character or number
-    if len(n) <= 2:
-        return "short"
     if n in _GREETINGS:
         return "greeting"
     if n in _THANKS:
@@ -103,7 +100,9 @@ def _classify(q: str) -> str | None:
         return "confused"
     if n in _TEST:
         return "test"
-    # gibberish: 1-2 word input where no word is longer than 3 chars
+    # single char/number or pure gibberish
+    if len(n) <= 1:
+        return "short"
     words = n.split()
     if len(words) <= 2 and all(len(w) <= 3 for w in words):
         return "short"
