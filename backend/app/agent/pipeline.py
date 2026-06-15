@@ -176,15 +176,15 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
 
 
 _REPLIES = {
-    "greeting": "Hey! Ask me anything about Irish parliamentary debates or statistics. Housing, rent, immigration, cost of living, health, education — whatever you're curious about.",
+    "greeting": "Hey! Ask me anything about Irish parliamentary debates or statistics. Housing, rent, immigration, cost of living, health, education, whatever you're curious about.",
     "thanks":   "No problem, glad it helped! Ask another question any time.",
     "goodbye":  "Take care! Come back any time you want to look something up.",
     "praise":   "Cheers! Let me know if you want to dig into anything else.",
-    "negative": "Fair enough. If you do want to give it a proper try, ask something like \"What did politicians say about rent?\" and see what comes back.",
+    "negative": "Fair enough. If you do want to give it a proper try, ask something like 'What did politicians say about rent?' and see what comes back.",
     "about":    "Faisneis searches Dail and Seanad debate transcripts from 2020 onwards and cross-references them with live CSO statistics. Type any question about Irish politics or economics and it finds the relevant speeches with citations back to the original source.",
-    "confused": "Try typing a question about Irish politics or economics and I'll search the debates for you. Something like \"What did politicians say about housing?\" or \"How has rent changed in Ireland?\"",
-    "test":     "Yep, working fine. Try asking a real question — something like \"What did politicians say about the cost of living?\"",
-    "short":    "That's a bit short to search on. Try a full question like \"What did politicians say about housing?\" or \"How has unemployment changed in Ireland?\"",
+    "confused": "Try typing a question about Irish politics or economics and I'll search the debates for you. Something like 'What did politicians say about housing?' or 'How has rent changed in Ireland?'",
+    "test":     "Yep, working fine. Try asking a real question, something like 'What did politicians say about the cost of living?'",
+    "short":    "That's a bit short to search on. Try a full question like 'What did politicians say about housing?' or 'How has unemployment changed in Ireland?'",
 }
 
 
