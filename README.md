@@ -24,6 +24,62 @@ Example questions to try:
 
 ---
 
+## Screenshots
+
+### Asking about housing supply
+
+![Housing supply question](Screenshots/q-housing-supply.png)
+
+Heather Humphreys and Michael McGrath both cited on the same question. Each [S1], [S2] marker is a clickable link back to the original Oireachtas debate.
+
+### Rent trends
+
+![Rent question with CSO chart](Screenshots/q-rent-trends.png)
+
+When a question has an economic angle the app pulls CSO data too. This one fetched the Residential Property Price Index and drew a chart alongside the political quotes.
+
+### Immigration debates
+
+![Immigration question](Screenshots/q-immigration.png)
+
+Five TDs cited from different sessions - Paul Murphy criticising the Government for putting asylum seekers on the streets, Peter Burke on European Council discussions, others in between.
+
+### Cost of living
+
+![Cost of living question](Screenshots/q-cost-of-living.png)
+
+Good example of cross-party coverage. Joe Flaherty, Pearse Doherty, Mary Lou McDonald, and Louise O'Reilly all quoted on the same topic from different dates and sessions.
+
+### International students
+
+![International students question](Screenshots/q-international-students.png)
+
+A more niche subject that shows the search still finds relevant debates even when it's not a hot-button topic. Norma Foley, Simon Harris, and Colm Brophy all came up.
+
+---
+
+### Infrastructure
+
+### Pinecone - the vector index
+
+![Pinecone index](Screenshots/pinecone-index.png)
+
+315,300 speech chunks stored after ingesting Dail and Seanad transcripts from 2020 onwards. Each record has the speaker name, debate date, chamber, and a direct URL back to the Oireachtas website so every citation is traceable.
+
+### Render - backend in production
+
+![Render backend](Screenshots/render-backend.png)
+
+The FastAPI backend running on Render's free tier. Logs show the ONNX embedding model getting pre-baked at build time, then uvicorn starting up and health checks passing.
+
+### Vercel - frontend in production
+
+![Vercel frontend](Screenshots/vercel-frontend.png)
+
+Next.js frontend on Vercel with faisneis.vercel.app as the custom domain. 32 second build.
+
+---
+
 ## Stack
 
 | Layer | Tech |
