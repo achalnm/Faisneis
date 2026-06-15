@@ -63,7 +63,6 @@ export interface AskResponse {
 }
 
 export async function askQuestion(question: string): Promise<AskResponse> {
-  // Uses SSE so heartbeat comments keep the connection alive through proxies/Render timeout.
   const res = await fetch(`${API_BASE}/api/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -100,5 +99,5 @@ export async function askQuestion(question: string): Promise<AskResponse> {
       }
     }
   }
-  throw new Error("Server closed the connection — please try again.");
+  throw new Error("Connection closed unexpectedly. Please try again.");
 }

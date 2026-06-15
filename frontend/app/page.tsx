@@ -100,7 +100,7 @@ export default function Home() {
               Searching debates and statistics…
             </div>
             <p className="text-xs text-gray-300 pl-7">
-              First search after inactivity can take up to 90 seconds while the server wakes up.
+              If the server was idle, first request can take up to a minute to wake up.
             </p>
           </div>
         )}

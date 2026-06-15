@@ -1,11 +1,8 @@
-# Fáisnéis (Under Construction)
+# Faisneis
 
-A question-answering system that cross-references Irish parliamentary debates with
-official economic statistics from the Central Statistics Office. Ask a question in
-plain English and get a grounded, cited answer drawn from Oireachtas transcripts and
-live CSO data.
+An Irish parliamentary Q&A tool. Ask a question in plain English and get a cited answer drawn from Oireachtas debate transcripts and live CSO statistics.
 
-Every number and every quote traces to an openable source.
+Built as a personal project to make Dail debates more searchable and to cross-reference what politicians say with what the actual numbers show.
 
 **Live:** [faisneis.vercel.app](https://faisneis.vercel.app)
 
@@ -13,41 +10,41 @@ Every number and every quote traces to an openable source.
 
 ## What it does
 
-- Searches Dáil and Seanad debates (Akoma Ntoso XML, 2020 onwards) for relevant speeches
-- Fetches live CSO statistics for economic topics (inflation, employment, housing, etc.)
-- Routes questions to the right tools, retrieves evidence, and synthesises a cited answer
-- Shows the router's reasoning so you can see why it answered the way it did
-- Renders a time-series chart when statistical data is available
+- Searches Dail and Seanad debates (XML transcripts, 2020 onwards) for relevant speeches
+- Pulls live stats from the CSO for economic topics (inflation, rent, unemployment, etc.)
+- Routes each question to the right data sources, then writes a cited answer
+- Shows a chart when there is time-series data worth plotting
+- Every quote and every number links back to its original source
 
-Example questions:
+Example questions to try:
 
 - "What did Irish politicians say about housing supply in 2024?"
-- "How often has the cost of living been raised in the Dáil this year, and what do the inflation figures show?"
-- "What has the Minister for Finance said about employment, and how does that compare to the CSO unemployment rate?"
+- "How often has the cost of living been raised in the Dail and what do the inflation figures show?"
+- "What has the Minister for Finance said about employment?"
 
 ---
 
 ## Stack
 
-| Layer | Technology |
+| Layer | Tech |
 | --- | --- |
-| Frontend | Next.js, Tailwind CSS, Recharts — deployed on Vercel |
-| Backend | FastAPI, Python 3.11 — deployed on Render |
-| Vector store | Pinecone (serverless) |
-| Embeddings | fastembed / ONNX (all-MiniLM-L6-v2, no GPU needed) |
-| LLM | Gemini 2.5 Flash or Claude (configurable) |
-| Data | Oireachtas API + CSO PxStat API |
+| Frontend | Next.js, Tailwind CSS, Recharts (Vercel) |
+| Backend | FastAPI, Python 3.12 (Render) |
+| Vector store | Pinecone serverless |
+| Embeddings | fastembed, all-MiniLM-L6-v2 (ONNX, no GPU) |
+| LLM | Llama 3.3 70B via Groq |
+| Data | Oireachtas Open Data API + CSO PxStat API |
 
 ---
 
-## Local setup
+## Running locally
 
 ### Backend
 
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in your API keys
+cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -59,110 +56,86 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Then open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Configuration
+## Environment variables
 
-All settings live in `backend/.env`:
+Set these in `backend/.env`:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `LLM_PROVIDER` | `gemini` | `gemini` or `claude` |
+| `LLM_PROVIDER` | `groq` | `groq`, `gemini`, or `claude` |
+| `GROQ_API_KEY` | | Required when using Groq |
 | `GOOGLE_API_KEY` | | Required when using Gemini |
 | `ANTHROPIC_API_KEY` | | Required when using Claude |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Optional model override |
-| `PINECONE_API_KEY` | | Required for cloud vector store |
-| `PINECONE_INDEX` | `faisneis-speeches` | Pinecone index name |
-| `INGEST_DATE_START` | `2020-01-01` | Start of ingestion window |
-| `INGEST_DATE_END` | today | End of ingestion window |
-| `CACHE_DIR` | `./data/cache` | Disk cache for API responses |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | |
+| `PINECONE_API_KEY` | | Pinecone API key |
+| `PINECONE_INDEX` | `faisneis-speeches` | Index name |
+| `CACHE_DIR` | `./data/cache` | Local cache for API responses |
+
+Frontend needs one variable in `.env.local`:
+
+```env
+NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
+```
 
 ---
 
-## Ingestion
+## Ingesting speeches
 
-Run from `backend/` to populate the vector store:
+Run from `backend/`:
 
 ```bash
-# Dry run first to check what would be added
-python -m app.ingest.run_ingest --dry-run
-
-# Single month (fast, good for testing)
+# test with a single month first
 python -m app.ingest.run_ingest --chamber dail --date-start 2024-01-01 --date-end 2024-01-31
 
-# Full window, both chambers
+# full backfill
 python -m app.ingest.run_ingest --chamber both
 ```
 
-Ingestion is idempotent — re-running skips already-loaded speech IDs. API responses
-are cached to `CACHE_DIR` so re-runs are fast.
+Re-running is safe, it skips speech IDs already in the index.
 
 ---
 
-## API
+## API endpoints
 
-### `POST /api/ask`
+`POST /api/ask` - main endpoint, streams SSE
 
 ```json
 { "question": "What did politicians say about housing supply?" }
 ```
 
-Returns `tool_plan`, `answer` (with citations), and optional `chart_data`.
+`GET /api/health` - returns provider name and status
 
-### `GET /api/health`
+`GET /api/debug/speech-search?q=...` - test semantic search directly
 
-Returns `{ "status": "ok", "provider": "gemini" }`.
-
-### `GET /api/debug/speech-search?q=...`
-
-Runs a semantic search and returns the top matching speech chunks.
-
-### `GET /api/debug/stats-search?q=...`
-
-Searches the CSO catalog and returns candidate matrix codes.
+`GET /api/debug/stats-search?q=...` - test CSO catalog matching
 
 ---
 
-## Evaluation
-
-```bash
-cd backend
-python eval/run_eval.py
-```
-
-Runs the golden question set and checks citation completeness, confidence calibration,
-and numeric plausibility of stat citations.
-
----
-
-## Project layout
+## Project structure
 
 ```text
-faisneis/
-  backend/
-    app/
-      main.py           FastAPI routes
-      config.py         Settings from .env
-      schemas.py        Pydantic models
-      ingest/           Oireachtas client, AKN parser, chunker, ingest CLI
-      retrieval/        Pinecone/Chroma vector store and embeddings
-      stats/            CSO client, catalog search, JSON-stat parser
-      agent/            LLM abstraction, router, synthesizer, pipeline
-    eval/               Golden question set and eval harness
-    scripts/            Migration and verification utilities
-  frontend/
-    app/                Next.js App Router pages and API client
-    components/         AnswerView, SourcesPanel, StatChart
+backend/
+  app/
+    main.py         FastAPI app and SSE streaming
+    config.py       settings via pydantic-settings
+    schemas.py      request/response types
+    agent/          router, synthesizer, LLM wrappers, pipeline
+    retrieval/      Pinecone client and embeddings
+    stats/          CSO API client, catalog search, jsonstat parser
+    ingest/         Oireachtas XML parser and ingestion scripts
+frontend/
+  app/              Next.js pages and API client
+  components/       AnswerView, SourcesPanel, StatChart
 ```
 
 ---
 
-## Data sources
+## Data
 
-Parliamentary debates published by the Houses of the Oireachtas under the
-[Open Data PSI Licence](https://www.oireachtas.ie/en/open-data/).
+Parliamentary debates from the [Houses of the Oireachtas](https://www.oireachtas.ie/en/open-data/) under the Open Data PSI Licence.
 
-Statistics published by the Central Statistics Office.
-© Central Statistics Office, Ireland. [cso.ie](https://www.cso.ie)
+Statistics from the [Central Statistics Office](https://www.cso.ie). CSO Ireland.

@@ -1,6 +1,6 @@
-# Fáisnéis — Frontend
+# Faisneis frontend
 
-Next.js frontend. See the [root README](../README.md) for setup and deployment instructions.
+Next.js frontend. See the [root README](../README.md) for setup and deployment info.
 
 ```bash
 npm install

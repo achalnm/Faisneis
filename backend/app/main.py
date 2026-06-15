@@ -15,10 +15,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Faisneis", version="0.1.0")
 
-# In-memory answer cache: normalised question -> (timestamp, payload_str)
-# Answers are valid for 2 hours. Saves Gemini calls for repeat/similar questions.
 _cache: dict[str, tuple[float, str]] = {}
-_CACHE_TTL = 7200  # 2 hours
+_CACHE_TTL = 7200
 
 
 def _cache_key(q: str) -> str:
@@ -104,15 +102,13 @@ async def ask(body: AskRequest):
             _cache[ck] = (time.time(), data_str)
             yield f"event: result\ndata: {data_str}\n\n"
         else:
-            msg = result_box.get("err") or "Something went wrong — please try again."
+            msg = result_box.get("err") or ""
             if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rate_limit" in msg.lower():
-                detail = "Too many requests — please wait a moment and try again."
+                detail = "Too many requests right now, please wait a moment and try again."
             elif "503" in msg or "UNAVAILABLE" in msg:
-                detail = "AI model temporarily overloaded — try again in a moment."
-            elif msg == "Something went wrong — please try again.":
-                detail = msg
+                detail = "Model is temporarily unavailable, try again in a moment."
             else:
-                detail = "Something went wrong — please try again."
+                detail = "Something went wrong, please try again."
             yield f"event: error\ndata: {json.dumps({'detail': detail})}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={
