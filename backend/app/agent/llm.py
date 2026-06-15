@@ -110,6 +110,22 @@ class _GroqLLM(LLM):
                 raise
 
 
+class _FallbackLLM(LLM):
+    def __init__(self, primary: LLM, fallback: LLM):
+        self._primary = primary
+        self._fallback = fallback
+
+    def complete(self, system: str, user: str) -> str:
+        try:
+            return self._primary.complete(system, user)
+        except Exception as e:
+            msg = str(e)
+            if "429" in msg or "rate_limit" in msg.lower() or "RESOURCE_EXHAUSTED" in msg:
+                logger.warning("Primary LLM rate limited, switching to fallback")
+                return self._fallback.complete(system, user)
+            raise
+
+
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
     provider = settings.llm_provider.lower()
@@ -118,5 +134,8 @@ def get_llm() -> LLM:
     if provider == "gemini":
         return _GeminiLLM()
     if provider == "groq":
-        return _GroqLLM()
+        primary = _GroqLLM()
+        if settings.google_api_key:
+            return _FallbackLLM(primary, _GeminiLLM())
+        return primary
     raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}. Use 'claude', 'gemini', or 'groq'.")
