@@ -82,6 +82,34 @@ class _GeminiLLM(LLM):
                 raise
 
 
+class _GroqLLM(LLM):
+    def __init__(self):
+        from groq import Groq
+        self._client = Groq(api_key=settings.groq_api_key)
+        self._model = settings.groq_model
+
+    def complete(self, system: str, user: str) -> str:
+        for attempt in range(3):
+            try:
+                resp = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user},
+                    ],
+                    max_tokens=8192,
+                )
+                return resp.choices[0].message.content
+            except Exception as e:
+                msg = str(e)
+                if ("429" in msg or "rate_limit" in msg.lower()) and attempt < 2:
+                    wait = 10 * (attempt + 1)
+                    logger.warning("Groq 429, retrying in %ds", wait)
+                    time.sleep(wait)
+                    continue
+                raise
+
+
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
     provider = settings.llm_provider.lower()
@@ -89,4 +117,6 @@ def get_llm() -> LLM:
         return _ClaudeLLM()
     if provider == "gemini":
         return _GeminiLLM()
-    raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}. Use 'claude' or 'gemini'.")
+    if provider == "groq":
+        return _GroqLLM()
+    raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}. Use 'claude', 'gemini', or 'groq'.")

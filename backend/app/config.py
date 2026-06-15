@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     llm_provider: str = Field(default="gemini")
     anthropic_api_key: Optional[str] = Field(default=None)
     google_api_key: Optional[str] = Field(default=None)
+    groq_api_key: Optional[str] = Field(default=None)
     gemini_model: str = Field(default="gemini-2.5-flash")
+    groq_model: str = Field(default="llama-3.3-70b-versatile")
     embed_model: str = Field(default="all-MiniLM-L6-v2")
     ingest_date_start: str = Field(default="2020-01-01")
     ingest_date_end: Optional[str] = Field(default=None)
@@ -27,6 +29,8 @@ class Settings(BaseSettings):
     def model_post_init(self, __context):
         if not self.gemini_model:
             self.gemini_model = "gemini-2.5-flash"
+        if not self.groq_model:
+            self.groq_model = "llama-3.3-70b-versatile"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         if not self.pinecone_api_key:
             self.chroma_dir.mkdir(parents=True, exist_ok=True)
