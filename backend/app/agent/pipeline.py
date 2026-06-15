@@ -17,35 +17,97 @@ logger = logging.getLogger(__name__)
 TOP_K_SPEECHES = 5
 
 _GREETINGS = {
-    "hello", "hi", "hey", "hiya", "howya", "howdy",
-    "hi there", "hello there", "hey there", "howdy there",
-    "bye", "goodbye", "good bye", "see ya", "see you", "cya", "later",
-    "thanks", "thank you", "thank you!", "thanks!", "cheers", "ta",
-    "ok", "okay", "cool", "nice", "great", "good",
-    "help", "what can you do", "what do you do", "how does this work",
-    "test", "testing",
+    "hello", "hi", "hey", "hiya", "howya", "howdy", "sup", "yo",
+    "hi there", "hello there", "hey there", "good morning", "good afternoon",
+    "good evening", "morning", "afternoon", "evening",
 }
 
-def _greeting_response() -> AskResponse:
+_THANKS = {
+    "thanks", "thank you", "thank you so much", "thanks a lot", "thanks a million",
+    "cheers", "ta", "thx", "ty", "many thanks", "much appreciated", "appreciated",
+    "brilliant", "deadly", "savage", "class", "legend", "sound",
+}
+
+_GOODBYES = {
+    "bye", "goodbye", "good bye", "see ya", "see you", "cya", "later",
+    "take care", "talk later", "bye bye", "adios", "cheerio", "good night",
+    "goodnight", "night", "ttyl", "tty later",
+}
+
+_PRAISE = {
+    "wow", "amazing", "awesome", "impressive", "nice", "great", "cool", "okay", "ok",
+    "good", "excellent", "fantastic", "love it", "love this", "this is great",
+    "this is amazing", "this is cool", "well done", "nice work", "good work",
+    "great work", "very cool", "pretty cool", "not bad",
+}
+
+_NEGATIVE = {
+    "i hate you", "hate you", "hate this", "this is rubbish", "rubbish",
+    "this is useless", "useless", "this is trash", "trash", "garbage",
+    "this doesn't work", "doesn't work", "not working", "broken", "this is broken",
+    "terrible", "awful", "horrible", "this is terrible", "this is awful",
+    "worst", "this is the worst", "bad", "this is bad", "you're bad",
+    "shut up", "shut it", "go away", "leave me alone", "f off", "off",
+    "stupid", "you're stupid", "dumb", "idiot",
+}
+
+_ABOUT = {
+    "what are you", "who are you", "what is this", "what is faisneis",
+    "what does this do", "what can you do", "what do you do",
+    "how does this work", "how do you work", "explain yourself",
+    "tell me about yourself", "tell me about this", "what's this",
+    "whats this", "who made this", "who built this", "how were you made",
+}
+
+_CONFUSED = {
+    "what", "huh", "hmm", "hm", "eh", "pardon", "sorry", "what?", "huh?",
+    "i don't understand", "i dont understand", "confused", "not sure",
+    "what do you mean", "idk",
+}
+
+_TEST = {
+    "test", "testing", "hello world", "ping", "123", "1234",
+    "asdf", "qwerty", "asd", "lol", "lmao", "haha", "hehe",
+}
+
+
+def _quick_reply(text: str, rationale: str) -> AskResponse:
     from app.schemas import Answer, ToolPlan
     return AskResponse(
         tool_plan=ToolPlan(intent="speech_only", speech_query=None, date_start=None,
-                           date_end=None, speakers=[], stats_topics=[], rationale="greeting"),
-        answer=Answer(
-            answer=(
-                "Hi! I can answer questions about Irish parliamentary debates and official "
-                "statistics. Try asking things like: "
-                "\"What did politicians say about housing?\", "
-                "\"How has rent changed in Ireland?\", or "
-                "\"What is the unemployment rate?\""
-            ),
-            speech_citations=[],
-            stat_citations=[],
-            confidence="high",
-            caveats="",
-        ),
+                           date_end=None, speakers=[], stats_topics=[], rationale=rationale),
+        answer=Answer(answer=text, speech_citations=[], stat_citations=[],
+                      confidence="high", caveats=""),
         chart_data=None,
     )
+
+
+def _classify(q: str) -> str | None:
+    n = q.lower().strip().rstrip("!?.,")
+    # single character or number
+    if len(n) <= 2:
+        return "short"
+    if n in _GREETINGS:
+        return "greeting"
+    if n in _THANKS:
+        return "thanks"
+    if n in _GOODBYES:
+        return "goodbye"
+    if n in _PRAISE:
+        return "praise"
+    if n in _NEGATIVE:
+        return "negative"
+    if n in _ABOUT:
+        return "about"
+    if n in _CONFUSED:
+        return "confused"
+    if n in _TEST:
+        return "test"
+    # gibberish: 1-2 word input where no word is longer than 3 chars
+    words = n.split()
+    if len(words) <= 2 and all(len(w) <= 3 for w in words):
+        return "short"
+    return None
 
 _ROLE_WORDS = {
     "minister", "taoiseach", "tánaiste", "tanaiste", "senator", "deputy",
@@ -113,9 +175,23 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
     return result
 
 
+_REPLIES = {
+    "greeting": "Hey! Ask me anything about Irish parliamentary debates or statistics. Housing, rent, immigration, cost of living, health, education — whatever you're curious about.",
+    "thanks":   "No problem, glad it helped! Ask another question any time.",
+    "goodbye":  "Take care! Come back any time you want to look something up.",
+    "praise":   "Cheers! Let me know if you want to dig into anything else.",
+    "negative": "Fair enough. If you do want to give it a proper try, ask something like \"What did politicians say about rent?\" and see what comes back.",
+    "about":    "Faisneis searches Dail and Seanad debate transcripts from 2020 onwards and cross-references them with live CSO statistics. Type any question about Irish politics or economics and it finds the relevant speeches with citations back to the original source.",
+    "confused": "Try typing a question about Irish politics or economics and I'll search the debates for you. Something like \"What did politicians say about housing?\" or \"How has rent changed in Ireland?\"",
+    "test":     "Yep, working fine. Try asking a real question — something like \"What did politicians say about the cost of living?\"",
+    "short":    "That's a bit short to search on. Try a full question like \"What did politicians say about housing?\" or \"How has unemployment changed in Ireland?\"",
+}
+
+
 def answer(question: str) -> AskResponse:
-    if question.lower().strip().rstrip("!?.") in _GREETINGS:
-        return _greeting_response()
+    category = _classify(question)
+    if category:
+        return _quick_reply(_REPLIES[category], category)
 
     plan = route(question)
     logger.info("Tool plan: intent=%s, speech_query=%r, stats=%s",
