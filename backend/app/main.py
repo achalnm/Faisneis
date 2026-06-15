@@ -1,6 +1,8 @@
 import asyncio
 import json
 import logging
+import re
+import time
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -12,6 +14,15 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Faisneis", version="0.1.0")
+
+# In-memory answer cache: normalised question -> (timestamp, payload_str)
+# Answers are valid for 2 hours. Saves Gemini calls for repeat/similar questions.
+_cache: dict[str, tuple[float, str]] = {}
+_CACHE_TTL = 7200  # 2 hours
+
+
+def _cache_key(q: str) -> str:
+    return re.sub(r"\s+", " ", q.lower().strip())
 
 _origins = ["http://localhost:3000"]
 if settings.allowed_origins:
@@ -45,9 +56,18 @@ async def ask(body: AskRequest):
     if provider == "gemini" and not settings.google_api_key:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not set.")
 
+    ck = _cache_key(body.question)
+    cached = _cache.get(ck)
+    if cached and (time.time() - cached[0]) < _CACHE_TTL:
+        logger.info("Cache hit for %r", ck)
+        cached_str = cached[1]
+        async def serve_cached():
+            yield f"event: result\ndata: {cached_str}\n\n"
+        return StreamingResponse(serve_cached(), media_type="text/event-stream", headers={
+            "Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+        })
+
     async def stream():
-        # Send SSE heartbeat comments every 5 seconds to prevent proxy/Render timeouts.
-        # The final event is a "result" with the JSON payload.
         loop = asyncio.get_event_loop()
         done = asyncio.Event()
         result_box = {}
@@ -74,12 +94,12 @@ async def ask(body: AskRequest):
         if "ok" in result_box:
             try:
                 payload = result_box["ok"].model_dump()
-                # Coerce numpy/non-standard floats that json.dumps can't handle
                 data_str = json.dumps(payload, default=lambda x: float(x) if hasattr(x, '__float__') else str(x))
             except Exception as e:
                 logger.error("Serialization error: %s", e)
                 yield f"event: error\ndata: {json.dumps({'detail': f'Serialization error: {e}'})}\n\n"
                 return
+            _cache[ck] = (time.time(), data_str)
             yield f"event: result\ndata: {data_str}\n\n"
         else:
             msg = result_box.get("err", "Unknown error")
