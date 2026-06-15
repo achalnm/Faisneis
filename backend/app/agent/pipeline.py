@@ -16,6 +16,35 @@ logger = logging.getLogger(__name__)
 
 TOP_K_SPEECHES = 5
 
+_GREETINGS = {
+    "hello", "hi", "hey", "hiya", "howya", "howdy",
+    "bye", "goodbye", "good bye", "see ya", "see you", "cya",
+    "thanks", "thank you", "thank you!", "thanks!", "cheers",
+    "ok", "okay", "cool", "nice", "great", "good",
+    "help", "what can you do", "what do you do",
+}
+
+def _greeting_response() -> AskResponse:
+    from app.schemas import Answer, ToolPlan
+    return AskResponse(
+        tool_plan=ToolPlan(intent="speech_only", speech_query=None, date_start=None,
+                           date_end=None, speakers=[], stats_topics=[], rationale="greeting"),
+        answer=Answer(
+            answer=(
+                "Hi! I can answer questions about Irish parliamentary debates and official "
+                "statistics. Try asking things like: "
+                "\"What did politicians say about housing?\", "
+                "\"How has rent changed in Ireland?\", or "
+                "\"What is the unemployment rate?\""
+            ),
+            speech_citations=[],
+            stat_citations=[],
+            confidence="high",
+            caveats="",
+        ),
+        chart_data=None,
+    )
+
 _ROLE_WORDS = {
     "minister", "taoiseach", "tánaiste", "tanaiste", "senator", "deputy",
     "chair", "chairman", "secretary", "general", "finance", "health",
@@ -83,6 +112,9 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
 
 
 def answer(question: str) -> AskResponse:
+    if question.lower().strip().rstrip("!?.") in _GREETINGS:
+        return _greeting_response()
+
     plan = route(question)
     logger.info("Tool plan: intent=%s, speech_query=%r, stats=%s",
                 plan.intent, plan.speech_query, plan.stats_topics)
