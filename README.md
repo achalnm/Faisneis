@@ -134,6 +134,24 @@ frontend/
 
 ---
 
+## Things that didn't work (notes to self)
+
+**Hosting was a nightmare.** I originally tried Railway but anything with a persistent volume needs a paid plan. Tried Oracle Cloud free tier but the signup kept failing. Fly.io free tier is basically dead now. Koyeb showed $30/month upfront. Eventually landed on Render which is actually free with no card required, but it has a 512MB RAM limit which caused its own problems.
+
+**sentence-transformers kept killing the server.** My first embedding setup used sentence-transformers + PyTorch. Worked fine locally but on Render it would crash after a few seconds with an OOM error. PyTorch alone is 400MB+. Switched to fastembed which uses ONNX runtime instead and brought memory down to a reasonable level.
+
+**The CSO catalog search was unusably slow.** I originally embedded all 12,000+ CSO table titles at startup to find relevant stats for a query. On Render this took over 2 minutes on cold start. Replaced it with simple keyword matching which runs in under 0.1 seconds and is honestly just as accurate for this use case.
+
+**Render's 30 second timeout.** The backend was taking 40-50 seconds to answer some questions. Render kills any request that doesn't start responding within 30 seconds. Fixed by switching the `/api/ask` endpoint to SSE (server-sent events) and sending a heartbeat comment every 5 seconds to keep the connection alive while the answer is being generated.
+
+**SSE parser bug that took ages to find.** The frontend was parsing the SSE stream but randomly getting "stream ended without a result" errors. Turned out I was declaring the `eventType` and `dataLine` variables inside the while loop so they were reset on every iteration. When an event and its data arrived in different network chunks the parser lost the event type. Moving the declarations outside the loop fixed it.
+
+**Gemini's free tier rate limit.** Gemini 2.5 Flash free tier allows 10 requests per minute. Fine for normal use but the moment I started running test batches it would hit the limit immediately. Switched to Groq which runs Llama 3.3 70B and gives 30 RPM and 14,000 requests per day on the free tier.
+
+**Speaker name detection.** Querying for "what did the Minister for Finance say" was returning zero results because the code was trying to filter Pinecone by `speaker_name = "Minister for Finance"` which matched nothing. Had to add logic to detect when a "speaker" is actually a role title rather than a person's name, and skip the filter in that case.
+
+---
+
 ## Data
 
 Parliamentary debates from the [Houses of the Oireachtas](https://www.oireachtas.ie/en/open-data/) under the Open Data PSI Licence.
