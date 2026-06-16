@@ -50,8 +50,6 @@ async def ask(body: AskRequest):
         raise HTTPException(status_code=400, detail="question must not be empty")
 
     provider = settings.llm_provider
-    if provider == "claude" and not settings.anthropic_api_key:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set.")
     if provider == "gemini" and not settings.google_api_key:
         raise HTTPException(status_code=503, detail="GOOGLE_API_KEY is not set.")
     if provider == "groq" and not settings.groq_api_key:
