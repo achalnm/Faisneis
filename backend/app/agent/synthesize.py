@@ -66,6 +66,7 @@ def _format_speeches(chunks: list[dict]) -> str:
             f"[S{i}] {m.get('speaker_name','?')} ({m.get('debate_date','?')}, "
             f"{m.get('chamber','?')}, {m.get('debate_title','?')})\n"
             f"Section: {m.get('topic_section') or 'unspecified'}\n"
+            # truncating at 400 chars -- tried 500 but the prompt got too long
             f"Text: {text}\n"
             f"URL: {m.get('source_url','')}"
         )

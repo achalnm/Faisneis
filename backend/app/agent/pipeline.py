@@ -64,6 +64,8 @@ _CONFUSED = {
     "i don't understand", "i dont understand", "confused", "not sure",
     "what do you mean", "idk",
 }
+# TODO: "how are you", "how's it going" etc fall through to the LLM at the moment
+# probably fine since it handles them gracefully but worth catching here eventually
 
 _TEST = {
     "test", "testing", "hello world", "ping", "123", "1234",

@@ -82,6 +82,8 @@ def _pc_query(text: str, k: int, filters: dict | None) -> list[dict]:
     resp = idx.query(vector=q_vec, top_k=fetch_k, include_metadata=True, filter=pc_filter)
 
     out = []
+    # date filtering is done in Python rather than via Pinecone metadata filter
+    # because range queries on string dates were returning unexpected results
     for match in resp.matches:
         meta = match.metadata or {}
         d = meta.get("debate_date", "")

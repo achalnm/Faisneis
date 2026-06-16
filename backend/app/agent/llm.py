@@ -30,26 +30,11 @@ class LLM:
                 return json.loads(raw)
             except json.JSONDecodeError as e:
                 if attempt == 0:
-                    logger.warning("JSON parse failed (attempt 1), retrying: %s", e)
+                    logger.warning("JSON parse failed, retrying: %s", e)
                     continue
-                logger.error("JSON parse failed after retry. Raw response:\n%s", raw[:500])
+                logger.error("JSON parse failed after retry. Raw:\n%s", raw[:500])
                 raise ValueError(f"LLM did not return valid JSON: {e}") from e
         return {}
-
-
-class _ClaudeLLM(LLM):
-    def __init__(self):
-        import anthropic
-        self._client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-
-    def complete(self, system: str, user: str) -> str:
-        msg = self._client.messages.create(
-            model=self._model,
-            max_tokens=4096,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return msg.content[0].text
 
 
 class _GeminiLLM(LLM):
@@ -75,8 +60,9 @@ class _GeminiLLM(LLM):
             except Exception as e:
                 msg = str(e)
                 if ("429" in msg or "RESOURCE_EXHAUSTED" in msg) and attempt < 2:
-                    wait = 30 * (attempt + 1)
-                    logger.warning("Gemini 429, retrying in %ds (attempt %d)", wait, attempt + 1)
+                    # second retry needs more breathing room than the first
+                    wait = 60 if attempt else 30
+                    logger.warning("Gemini rate limited, retry %d in %ds", attempt + 1, wait)
                     time.sleep(wait)
                     continue
                 raise
@@ -89,7 +75,7 @@ class _GroqLLM(LLM):
         self._model = settings.groq_model
 
     def complete(self, system: str, user: str) -> str:
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 resp = self._client.chat.completions.create(
                     model=self._model,
@@ -102,10 +88,9 @@ class _GroqLLM(LLM):
                 return resp.choices[0].message.content
             except Exception as e:
                 msg = str(e)
-                if ("429" in msg or "rate_limit" in msg.lower()) and attempt < 2:
-                    wait = 10 * (attempt + 1)
-                    logger.warning("Groq 429, retrying in %ds", wait)
-                    time.sleep(wait)
+                if ("429" in msg or "rate_limit" in msg.lower()) and attempt == 0:
+                    logger.warning("Groq rate limited, retrying in 15s")
+                    time.sleep(15)
                     continue
                 raise
 
@@ -129,8 +114,6 @@ class _FallbackLLM(LLM):
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
     provider = settings.llm_provider.lower()
-    if provider == "claude":
-        return _ClaudeLLM()
     if provider == "gemini":
         return _GeminiLLM()
     if provider == "groq":
@@ -138,4 +121,4 @@ def get_llm() -> LLM:
         if settings.google_api_key:
             return _FallbackLLM(primary, _GeminiLLM())
         return primary
-    raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}. Use 'claude', 'gemini', or 'groq'.")
+    raise ValueError(f"Unknown LLM_PROVIDER: {provider!r}. Use 'gemini' or 'groq'.")

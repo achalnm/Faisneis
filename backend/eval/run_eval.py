@@ -101,7 +101,7 @@ def run():
 
 
 if __name__ == "__main__":
-    if not settings.anthropic_api_key and not settings.google_api_key:
-        print("No API key set. Add ANTHROPIC_API_KEY or GOOGLE_API_KEY to backend/.env")
+    if not settings.groq_api_key and not settings.google_api_key:
+        print("No API key set. Add GROQ_API_KEY or GOOGLE_API_KEY to backend/.env")
         sys.exit(1)
     run()

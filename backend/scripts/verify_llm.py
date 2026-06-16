@@ -24,16 +24,16 @@ def test_provider(provider: str):
         print(f"ERROR: {e}")
 
 
-if settings.anthropic_api_key:
-    test_provider("claude")
+if settings.groq_api_key:
+    test_provider("groq")
 else:
-    print("Skipping claude: ANTHROPIC_API_KEY not set")
+    print("Skipping groq: GROQ_API_KEY not set")
 
 if settings.google_api_key:
     test_provider("gemini")
 else:
     print("Skipping gemini: GOOGLE_API_KEY not set")
 
-if not settings.anthropic_api_key and not settings.google_api_key:
-    print("No API keys found. Add one to backend/.env and re-run.")
+if not settings.groq_api_key and not settings.google_api_key:
+    print("No API keys found. Add GROQ_API_KEY or GOOGLE_API_KEY to backend/.env and re-run.")
     sys.exit(1)

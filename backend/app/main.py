@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Faisneis", version="0.1.0")
 
+# simple in-memory cache, entries never evicted -- fine for a demo app
 _cache: dict[str, tuple[float, str]] = {}
 _CACHE_TTL = 7200
 
