@@ -6,21 +6,16 @@ from app.schemas import Answer, SpeechCitation, StatCitation
 logger = logging.getLogger(__name__)
 
 _SYSTEM = """\
-You answer questions about Irish politics and economics using ONLY the sources
-provided below. You must never invent facts, figures, quotes, dates, or
-statistics. If the provided sources do not support a claim, you do not make it.
+Answer questions about Irish politics and economics using ONLY the speech excerpts
+and statistics provided below. Do not make up facts, quotes, dates, or figures.
+If the sources don't support the question, say so plainly.
 
-Citation rules:
-- Mark every claim drawn from a speech with [S1], [S2], etc.
-- Mark every statistic drawn from a CSO table with [C1], [C2], etc.
-- Keep direct speech quotes to one sentence at most; prefer paraphrase with attribution.
-- Keep the answer field under 300 words. Be concise, cite more, explain less.
-- If the data is insufficient to answer the question, say so plainly and suggest
-  what additional data would be needed. Do not fabricate a substitute.
+Cite speeches as [S1], [S2] etc. and CSO statistics as [C1], [C2] etc.
+Keep the answer under 300 words. Direct quotes one sentence max, otherwise paraphrase.
 
-Return JSON matching exactly this shape:
+Return JSON only:
 {
-  "answer": "prose with inline [S1]/[C1] markers",
+  "answer": "prose with [S1]/[C1] markers",
   "speech_citations": [
     {
       "ref": "S1",
@@ -44,12 +39,11 @@ Return JSON matching exactly this shape:
     }
   ],
   "confidence": "high" | "medium" | "low",
-  "caveats": "honest note on what the data does not show"
+  "caveats": "honest note on what the data does not cover"
 }
 
-Confidence guide: "high" when multiple corroborating sources are present and
-directly address the question; "medium" when sources are partial or indirect;
-"low" when sources are scarce or only tangentially relevant.
+confidence: high = multiple sources directly answering the question;
+medium = partial or indirect sources; low = scarce or tangential
 """
 
 
@@ -62,11 +56,11 @@ def _format_speeches(chunks: list[dict]) -> str:
         text = c.get("text", "")
         if len(text) > 400:
             text = text[:397] + "..."
+            # truncating at 400 chars -- tried 500 but the prompt got too long
         lines.append(
             f"[S{i}] {m.get('speaker_name','?')} ({m.get('debate_date','?')}, "
             f"{m.get('chamber','?')}, {m.get('debate_title','?')})\n"
             f"Section: {m.get('topic_section') or 'unspecified'}\n"
-            # truncating at 400 chars -- tried 500 but the prompt got too long
             f"Text: {text}\n"
             f"URL: {m.get('source_url','')}"
         )
@@ -76,18 +70,18 @@ def _format_speeches(chunks: list[dict]) -> str:
 def _format_stats(stat_results: list[dict]) -> str:
     if not stat_results:
         return "No statistical sources retrieved."
-    lines = []
+    out = []
     for i, sr in enumerate(stat_results, start=1):
         series = sr.get("series", [])
         sample = series[-6:] if len(series) > 6 else series
-        sample_str = ", ".join(f"{p['period']}={p['value']}" for p in sample)
-        lines.append(
+        vals = ", ".join(f"{p['period']}={p['value']}" for p in sample)
+        out.append(
             f"[C{i}] {sr.get('title','?')} (matrix: {sr.get('matrix','?')})\n"
             f"Units: {sr.get('units','?')}\n"
-            f"Recent data: {sample_str}\n"
+            f"Recent: {vals}\n"
             f"URL: {sr.get('source_url','')}"
         )
-    return "\n\n".join(lines)
+    return "\n\n".join(out)
 
 
 def synthesize(question: str, speech_chunks: list[dict], stat_results: list[dict]) -> Answer:

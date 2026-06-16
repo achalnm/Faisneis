@@ -5,31 +5,22 @@ from app.schemas import ToolPlan
 logger = logging.getLogger(__name__)
 
 _SYSTEM = """\
-You are a query router for a system that answers questions about Irish politics
-and economics. Given a user question, produce a JSON routing plan.
+You route questions about Irish politics and economics to the right data sources.
 
-Rules:
-- Use intent "speech_only" if the question is purely about what politicians said.
-- Use intent "stats_only" if the question is purely about official statistics.
-- Use intent "both" if it involves both political statements and statistical evidence.
-- If the question asks your personal opinion ("what do you think", "do you agree"), treat it as a search for relevant parliamentary debate on that topic instead.
-- If the question is completely unrelated to Irish politics or economics (sports results, entertainment, etc), still attempt a speech search. The synthesizer will handle it gracefully.
-- speech_query should be a short phrase optimised for semantic search over debate transcripts.
-- stats_topics should list the economic topic(s) to look up (e.g. "inflation", "unemployment").
-- date_start / date_end should be ISO dates (YYYY-MM-DD) if the question implies a time window, else null.
-- speakers should list politician names or party names mentioned explicitly.
-- rationale is one sentence explaining your routing decision.
+Given a question, return JSON with these fields:
+- intent: "speech_only" for questions about what politicians said,
+  "stats_only" for official statistics questions, "both" if you need both
+- speech_query: short phrase to search Dail/Seanad transcripts with, or null
+- stats_topics: list of economic topic keywords (e.g. "inflation", "unemployment")
+- date_start / date_end: ISO dates if a time window is mentioned, else null
+- speakers: politician or party names mentioned explicitly
+- rationale: one sentence explaining the decision
 
-Output JSON matching exactly this shape:
-{
-  "intent": "speech_only" | "stats_only" | "both",
-  "speech_query": string | null,
-  "date_start": string | null,
-  "date_end": string | null,
-  "speakers": [string],
-  "stats_topics": [string],
-  "rationale": string
-}
+If a question asks your personal opinion, treat it as a search for parliamentary debate on that topic.
+Unrelated questions (sports, entertainment etc) should still attempt a speech search.
+
+Output valid JSON only, matching this shape:
+{"intent": "both", "speech_query": "housing supply", "date_start": "2024-01-01", "date_end": null, "speakers": [], "stats_topics": ["house completions"], "rationale": "..."}
 """
 
 _SCHEMA = '{"intent":"both","speech_query":"housing supply","date_start":"2024-01-01","date_end":null,"speakers":[],"stats_topics":["house completions"],"rationale":"..."}'

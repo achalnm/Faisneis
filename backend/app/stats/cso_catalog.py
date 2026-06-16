@@ -44,12 +44,7 @@ def build_catalog(cache_dir: Path, force: bool = False) -> list[dict]:
     return catalog
 
 
-def search_catalog(
-    query: str,
-    cache_dir: Path,
-    top_k: int = 5,
-    catalog: Optional[list[dict]] = None,
-) -> list[dict]:
+def search_catalog(query: str, cache_dir: Path, top_k: int = 5, catalog=None) -> list[dict]:
     if catalog is None:
         catalog = build_catalog(cache_dir)
     if not catalog:
@@ -66,6 +61,7 @@ def search_catalog(
     return [e for _, e in scored[:top_k]]
 
 
+# TODO: add more topics as the project grows
 _TOPIC_HINTS: dict[str, list[str]] = {
     "inflation": ["CPM01", "CPM03"],
     "consumer price": ["CPM01", "CPM03"],
@@ -85,38 +81,16 @@ _TOPIC_HINTS: dict[str, list[str]] = {
     "immigration": ["PEA14", "PEA15"],
     "asylum": ["PEA14", "PEA15"],
     "population": ["PEA01", "PEA14"],
-    "childcare": ["SAF04", "ECA11"],
-    "child care": ["SAF04", "ECA11"],
-    "pension": ["SAF01", "IIA04"],
-    "pensions": ["SAF01", "IIA04"],
-    "broadband": ["ISA12", "ICT01"],
-    "internet": ["ISA12", "ICT01"],
     "homelessness": ["HOM01", "SHA07"],
     "homeless": ["HOM01", "SHA07"],
     "emissions": ["EAA07", "GHG01"],
-    "greenhouse": ["EAA07", "GHG01"],
     "climate": ["EAA07", "GHG01"],
-    "crime": ["CJA05", "CJQ01"],
-    "agriculture": ["AAA16", "FAS01"],
-    "farming": ["AAA16", "FAS01"],
-    "farm": ["AAA16", "FAS01"],
     "hospital": ["HEA10", "HEA11"],
     "waiting list": ["HEA10", "HEA11"],
     "health spending": ["GFS01", "HEA15"],
-    "hse": ["GFS01", "HEA15"],
     "education spending": ["GFS01", "EDA07"],
     "school": ["EDA07", "EDA01"],
     "social housing": ["URA26", "SHA07"],
-    "water": ["ENV14", "WAT01"],
-    "transport": ["TTA01", "TTQ01"],
-    "gender pay": ["EHQ01", "EHA01"],
-    "pay gap": ["EHQ01", "EHA01"],
-    "direct provision": ["PEA14", "PEA15"],
-    "student fees": ["EDA07", "EDA01"],
-    "third level": ["EDA07", "EDA01"],
-    "fees": ["EDA07", "EDA01"],
-    "planning": ["URA26", "NDQ01"],
-    "disability": ["SAF04", "IIA04"],
 }
 
 

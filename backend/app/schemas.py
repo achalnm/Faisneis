@@ -6,13 +6,13 @@ class SpeechChunk(BaseModel):
     speech_id: str
     text: str
     speaker_name: str
-    member_uri: Optional[str] = None
-    party: Optional[str] = None
-    role: Optional[str] = None
+    member_uri: str | None = None
+    party: str | None = None
+    role: str | None = None
     chamber: str
     debate_title: str
     debate_date: str
-    topic_section: Optional[str] = None
+    topic_section: str | None = None
     source_url: str
 
 
@@ -29,7 +29,7 @@ class ToolPlan(BaseModel):
 class SpeechCitation(BaseModel):
     ref: str
     speaker: str
-    party: Optional[str] = None
+    party: str | None = None
     date: str
     debate_title: str
     quote_or_paraphrase: str
