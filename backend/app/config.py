@@ -11,7 +11,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    llm_provider: str = Field(default="gemini")
+    llm_provider: str = Field(default="groq")
     anthropic_api_key: Optional[str] = Field(default=None)
     google_api_key: Optional[str] = Field(default=None)
     groq_api_key: Optional[str] = Field(default=None)
