@@ -122,10 +122,9 @@ Set these in `backend/.env`:
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `LLM_PROVIDER` | `groq` | `groq`, `gemini`, or `claude` |
+| `LLM_PROVIDER` | `groq` | `groq` or `gemini` |
 | `GROQ_API_KEY` | | Required when using Groq |
 | `GOOGLE_API_KEY` | | Required when using Gemini |
-| `ANTHROPIC_API_KEY` | | Required when using Claude |
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | |
 | `PINECONE_API_KEY` | | Pinecone API key |
 | `PINECONE_INDEX` | `faisneis-speeches` | Index name |
