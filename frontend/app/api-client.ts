@@ -2,7 +2,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
 export async function fetchHealth() {
   const res = await fetch(`${API_BASE}/api/health`);
-  if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+  if (!res.ok) throw new Error(`health check failed ${res.status}`);
   return res.json() as Promise<{ status: string; provider: string }>;
 }
 
@@ -70,7 +70,7 @@ export async function askQuestion(question: string): Promise<AskResponse> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail ?? `Server error ${res.status}`);
+    throw new Error(body.detail ?? `server error ${res.status}`);
   }
 
   const reader = res.body!.getReader();
@@ -92,12 +92,12 @@ export async function askQuestion(question: string): Promise<AskResponse> {
         dataLine = line.slice(6).trim();
       } else if (line === "" && dataLine) {
         const payload = JSON.parse(dataLine);
-        if (eventType === "error") throw new Error(payload.detail ?? "Server error");
+        if (eventType === "error") throw new Error(payload.detail ?? "server error");
         if (eventType === "result") return payload as AskResponse;
         eventType = "";
         dataLine = "";
       }
     }
   }
-  throw new Error("Connection closed unexpectedly. Please try again.");
+  throw new Error("connection dropped, try again");
 }
