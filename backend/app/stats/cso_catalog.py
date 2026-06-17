@@ -91,6 +91,10 @@ _TOPIC_HINTS: dict[str, list[str]] = {
     "education spending": ["GFS01", "EDA07"],
     "school": ["EDA07", "EDA01"],
     "social housing": ["URA26", "SHA07"],
+    "tourism": ["ITA07", "TMQ05"],
+    "visitor numbers": ["ITA07"],
+    "tourists": ["ITA07", "TMQ05"],
+    "overnight visitors": ["ITA07"],
 }
 
 

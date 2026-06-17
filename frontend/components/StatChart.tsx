@@ -24,6 +24,8 @@ function formatPeriod(p: string): string {
   }
   const quarterly = p.match(/^(\d{4})Q(\d)$/);
   if (quarterly) return `Q${quarterly[2]} '${quarterly[1].slice(2)}`;
+  const csoQ = p.match(/^(\d{4})(\d)$/);
+  if (csoQ) return `Q${csoQ[2]} '${csoQ[1].slice(2)}`;
   return p.slice(0, 7);
 }
 

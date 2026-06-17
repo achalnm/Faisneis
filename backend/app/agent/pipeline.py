@@ -162,6 +162,8 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
             period_start = f"{today.year - 4}M{today.month:02d}"
         elif _re2.match(r"^\d{4}Q\d$", first_period):
             period_start = f"{today.year - 5}Q1"
+        elif _re2.match(r"^\d{4}\d$", first_period):
+            period_start = f"{today.year - 5}1"
         else:
             period_start = str(today.year - 7)
     else:
