@@ -107,7 +107,7 @@ export default function StatChart({ data }: Props) {
               border: "1px solid var(--color-rule)",
               borderRadius: 0,
             }}
-            formatter={(v: number) => [v, data.units || "Value"]}
+            formatter={(v) => [v, data.units || "Value"]}
             labelFormatter={formatPeriod}
           />
           <Line
