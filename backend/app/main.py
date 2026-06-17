@@ -23,7 +23,7 @@ _CACHE_TTL = 7200
 def _cache_key(q: str) -> str:
     return re.sub(r"\s+", " ", q.lower().strip())
 
-_origins = ["http://localhost:3000", "http://localhost:3001"]
+_origins = ["http://localhost:3000"]
 if settings.allowed_origins:
     _origins += [o.strip() for o in settings.allowed_origins.split(",") if o.strip()]
 
