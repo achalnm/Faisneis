@@ -56,6 +56,12 @@ Good example of cross-party coverage. Joe Flaherty, Pearse Doherty, Mary Lou McD
 
 A more niche subject that shows the search still finds relevant debates even when it's not a hot-button topic. Norma Foley, Simon Harris, and Colm Brophy all came up.
 
+### CSO chart alongside the answer
+
+![Unemployment rate with chart](Screenshots/q-unemployment-chart.png)
+
+When a question has a statistical angle the app fetches live CSO data and draws a chart. This one pulled the monthly unemployment series from CSO PxStat and plotted it next to the Dail speeches on the same topic.
+
 ---
 
 ### Infrastructure
