@@ -1,8 +1,8 @@
 # Faisneis
 
-An Irish parliamentary Q&A tool. Ask a question in plain English and get a cited answer drawn from Oireachtas debate transcripts and live CSO statistics.
+Ask a question about Irish politics or economics and get a cited answer drawn from Dail and Seanad debate transcripts, cross-referenced with live CSO statistics.
 
-Built as a personal project to make Dail debates more searchable and to cross-reference what politicians say with what the actual numbers show.
+Built as a personal project. Wanted a way to search what politicians actually said on a topic and compare it to what the numbers show.
 
 **Live:** [faisneis.vercel.app](https://faisneis.vercel.app)
 
@@ -10,17 +10,11 @@ Built as a personal project to make Dail debates more searchable and to cross-re
 
 ## What it does
 
-- Searches Dail and Seanad debates (XML transcripts, 2020 onwards) for relevant speeches
-- Pulls live stats from the CSO for economic topics (inflation, rent, unemployment, etc.)
-- Routes each question to the right data sources, then writes a cited answer
-- Shows a chart when there is time-series data worth plotting
-- Every quote and every number links back to its original source
+Each question goes through a two-step pipeline. First the LLM decides whether the question needs speech search, stat lookup, or both. Then it fetches the relevant data and writes a cited answer grounded only in what the sources actually say.
 
-Example questions to try:
+Speech citations link back to the original Oireachtas debate page. Stat citations link to the CSO PxStat table. If there is a time series worth showing, a chart gets drawn alongside the answer.
 
-- "What did Irish politicians say about housing supply in 2024?"
-- "How often has the cost of living been raised in the Dail and what do the inflation figures show?"
-- "What has the Minister for Finance said about employment?"
+The backend also handles greetings, thanks, and short nonsense without hitting the LLM at all.
 
 ---
 
@@ -34,55 +28,33 @@ Heather Humphreys and Michael McGrath both cited on the same question. Each [S1]
 
 ### Rent trends
 
-![Rent question with CSO chart](Screenshots/q-rent-trends.png)
+![Rent question](Screenshots/q-rent-trends.png)
 
-When a question has an economic angle the app pulls CSO data too. This one fetched the Residential Property Price Index and drew a chart alongside the political quotes.
+The router decided this needed both speech search and stats. Pulled the Residential Property Price Index from CSO alongside the debate quotes.
 
 ### Immigration debates
 
 ![Immigration question](Screenshots/q-immigration.png)
 
-Five TDs cited from different sessions - Paul Murphy criticising the Government for putting asylum seekers on the streets, Peter Burke on European Council discussions, others in between.
+Multiple TDs cited from different sessions and dates on the same topic. Citations are pinned to the exact speech, not just the debate.
 
 ### Cost of living
 
 ![Cost of living question](Screenshots/q-cost-of-living.png)
 
-Good example of cross-party coverage. Joe Flaherty, Pearse Doherty, Mary Lou McDonald, and Louise O'Reilly all quoted on the same topic from different dates and sessions.
+Cross-party coverage on the same question from different dates and sessions.
 
 ### International students
 
 ![International students question](Screenshots/q-international-students.png)
 
-A more niche subject that shows the search still finds relevant debates even when it's not a hot-button topic. Norma Foley, Simon Harris, and Colm Brophy all came up.
+A narrower topic that still finds relevant speeches. The search is semantic so it catches debates where the exact phrase was not used.
 
 ### CSO chart alongside the answer
 
-![Unemployment rate with chart](Screenshots/q-unemployment-chart.png)
+![Unemployment with chart](Screenshots/q-unemployment-chart.png)
 
-When a question has a statistical angle the app fetches live CSO data and draws a chart. This one pulled the monthly unemployment series from CSO PxStat and plotted it next to the Dail speeches on the same topic.
-
----
-
-### Infrastructure
-
-### Pinecone - the vector index
-
-![Pinecone index](Screenshots/pinecone-index.png)
-
-315,300 speech chunks stored after ingesting Dail and Seanad transcripts from 2020 onwards. Each record has the speaker name, debate date, chamber, and a direct URL back to the Oireachtas website so every citation is traceable.
-
-### Render - backend in production
-
-![Render backend](Screenshots/render-backend.png)
-
-The FastAPI backend running on Render's free tier. Logs show the ONNX embedding model getting pre-baked at build time, then uvicorn starting up and health checks passing.
-
-### Vercel - frontend in production
-
-![Vercel frontend](Screenshots/vercel-frontend.png)
-
-Next.js frontend on Vercel with faisneis.vercel.app as the custom domain. 32 second build.
+When a question has a statistical angle the app fetches live CSO data and draws a chart next to the answer. This one pulled the monthly Live Register series.
 
 ---
 
@@ -90,12 +62,13 @@ Next.js frontend on Vercel with faisneis.vercel.app as the custom domain. 32 sec
 
 | Layer | Tech |
 | --- | --- |
-| Frontend | Next.js, Tailwind CSS, Recharts (Vercel) |
-| Backend | FastAPI, Python 3.12 (Render) |
-| Vector store | Pinecone serverless |
-| Embeddings | fastembed, all-MiniLM-L6-v2 (ONNX, no GPU) |
-| LLM | Llama 3.3 70B via Groq |
-| Data | Oireachtas Open Data API + CSO PxStat API |
+| Frontend | Next.js 16, Tailwind CSS v4, Recharts (Vercel) |
+| Backend | FastAPI, Python 3.12 (Render free tier) |
+| Vector store | Pinecone serverless (384-dim cosine, us-east-1) |
+| Embeddings | fastembed all-MiniLM-L6-v2 (ONNX, no GPU) |
+| LLM | Llama 3.3 70B via Groq (Gemini 2.5 Flash fallback if GOOGLE_API_KEY is set) |
+| Stats | CSO PxStat REST API (live, no auth needed) |
+| Data | Oireachtas Open Data API (Dail and Seanad XML transcripts, 2020 onwards) |
 
 ---
 
@@ -107,6 +80,7 @@ Next.js frontend on Vercel with faisneis.vercel.app as the custom domain. 32 sec
 cd backend
 pip install -r requirements.txt
 cp .env.example .env
+# fill in GROQ_API_KEY and PINECONE_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -115,6 +89,8 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
+# create .env.local with:
+# NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
 npm run dev
 ```
 
@@ -130,11 +106,12 @@ Set these in `backend/.env`:
 | --- | --- | --- |
 | `LLM_PROVIDER` | `groq` | `groq` or `gemini` |
 | `GROQ_API_KEY` | | Required when using Groq |
-| `GOOGLE_API_KEY` | | Required when using Gemini |
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | |
-| `PINECONE_API_KEY` | | Pinecone API key |
-| `PINECONE_INDEX` | `faisneis-speeches` | Index name |
-| `CACHE_DIR` | `./data/cache` | Local cache for API responses |
+| `GOOGLE_API_KEY` | | Required for Gemini or as Groq fallback |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | |
+| `PINECONE_API_KEY` | | Leave blank to use local Chroma instead |
+| `PINECONE_INDEX` | `faisneis-speeches` | |
+| `CACHE_DIR` | `./data/cache` | CSO responses cached to disk here |
 
 Frontend needs one variable in `.env.local`:
 
@@ -160,19 +137,21 @@ Re-running is safe, it skips speech IDs already in the index.
 
 ---
 
-## API endpoints
+## API
 
-`POST /api/ask` - main endpoint, streams SSE
+`POST /api/ask` streams SSE
 
 ```json
 { "question": "What did politicians say about housing supply?" }
 ```
 
-`GET /api/health` - returns provider name and status
+The response is a server-sent event stream. Two event types: `result` (the full JSON payload) and `error`. Repeated identical questions are served from an in-memory cache with a 2 hour TTL.
 
-`GET /api/debug/speech-search?q=...` - test semantic search directly
+`GET /api/health` returns the active LLM provider
 
-`GET /api/debug/stats-search?q=...` - test CSO catalog matching
+`GET /api/debug/speech-search?q=...` tests semantic search directly
+
+`GET /api/debug/stats-search?q=...` tests CSO catalog matching
 
 ---
 
@@ -181,35 +160,59 @@ Re-running is safe, it skips speech IDs already in the index.
 ```text
 backend/
   app/
-    main.py         FastAPI app and SSE streaming
+    main.py         FastAPI app, SSE streaming, response cache
     config.py       settings via pydantic-settings
-    schemas.py      request/response types
+    schemas.py      request and response types
     agent/          router, synthesizer, LLM wrappers, pipeline
-    retrieval/      Pinecone client and embeddings
-    stats/          CSO API client, catalog search, jsonstat parser
+    retrieval/      Pinecone and Chroma clients, fastembed wrapper
+    stats/          CSO API client, catalog keyword search, jsonstat parser
     ingest/         Oireachtas XML parser and ingestion scripts
 frontend/
   app/              Next.js pages and API client
-  components/       AnswerView, SourcesPanel, StatChart
+  components/       Masthead, QuestionDesk, AnswerView, SourcesPanel, StatChart
 ```
 
 ---
 
-## Things that didn't work (notes to self)
+## Infrastructure
 
-**Hosting was a nightmare.** I originally tried Railway but anything with a persistent volume needs a paid plan. Tried Oracle Cloud free tier but the signup kept failing. Fly.io free tier is basically dead now. Koyeb showed $30/month upfront. Eventually landed on Render which is actually free with no card required, but it has a 512MB RAM limit which caused its own problems.
+### Pinecone
 
-**sentence-transformers kept killing the server.** My first embedding setup used sentence-transformers + PyTorch. Worked fine locally but on Render it would crash after a few seconds with an OOM error. PyTorch alone is 400MB+. Switched to fastembed which uses ONNX runtime instead and brought memory down to a reasonable level.
+![Pinecone index](Screenshots/pinecone-index.png)
 
-**The CSO catalog search was unusably slow.** I originally embedded all 12,000+ CSO table titles at startup to find relevant stats for a query. On Render this took over 2 minutes on cold start. Replaced it with simple keyword matching which runs in under 0.1 seconds and is honestly just as accurate for this use case.
+315,300 speech chunks. Each record stores speaker name, debate date, chamber, and the direct URL back to the Oireachtas website.
 
-**Render's 30 second timeout.** The backend was taking 40-50 seconds to answer some questions. Render kills any request that doesn't start responding within 30 seconds. Fixed by switching the `/api/ask` endpoint to SSE (server-sent events) and sending a heartbeat comment every 5 seconds to keep the connection alive while the answer is being generated.
+### Render
 
-**SSE parser bug that took ages to find.** The frontend was parsing the SSE stream but randomly getting "stream ended without a result" errors. Turned out I was declaring the `eventType` and `dataLine` variables inside the while loop so they were reset on every iteration. When an event and its data arrived in different network chunks the parser lost the event type. Moving the declarations outside the loop fixed it.
+![Render backend](Screenshots/render-backend.png)
 
-**Gemini's free tier rate limit.** Gemini 2.5 Flash free tier allows 10 requests per minute. Fine for normal use but the moment I started running test batches it would hit the limit immediately. Switched to Groq which runs Llama 3.3 70B and gives 30 RPM and 14,000 requests per day on the free tier.
+FastAPI on Render free tier. The ONNX embedding model gets pre-baked at build time so cold starts do not trigger a model download. Still takes 10-15 seconds to wake after idle.
 
-**Speaker name detection.** Querying for "what did the Minister for Finance say" was returning zero results because the code was trying to filter Pinecone by `speaker_name = "Minister for Finance"` which matched nothing. Had to add logic to detect when a "speaker" is actually a role title rather than a person's name, and skip the filter in that case.
+### Vercel
+
+![Vercel frontend](Screenshots/vercel-frontend.png)
+
+Next.js frontend on Vercel. Builds in about 30 seconds.
+
+---
+
+## Things that did not work
+
+**Hosting.** Railway needs a paid plan for persistent volumes. Oracle Cloud signup kept failing. Fly.io free tier is basically gone. Koyeb showed 30 USD/month upfront. Ended up on Render which is genuinely free with no card required, but the 512MB RAM limit caused its own problems.
+
+**sentence-transformers killed the server.** First embedding setup used sentence-transformers with PyTorch. Crashed on Render after a few seconds with OOM. PyTorch alone is 400MB. Switched to fastembed which uses ONNX runtime and brought memory down to a workable level.
+
+**The CSO catalog search was slow.** Originally embedded all 12,000+ CSO table titles at startup to find relevant stats. On Render this took over 2 minutes on cold start. Replaced with simple keyword matching which runs in under 0.1 seconds and is just as accurate for this use case.
+
+**Render 30 second timeout.** Some answers were taking 40-50 seconds. Render kills any request that does not start responding within 30 seconds. Fixed by switching to SSE and sending heartbeat comments every few seconds while the answer generates.
+
+**SSE parser bug.** The frontend was randomly getting "stream ended without a result" errors. The `eventType` and `dataLine` variables were being declared inside the while loop and reset on every iteration. When an event and its data arrived in different network chunks the parser lost the event type. Moving the declarations outside the loop fixed it.
+
+**Gemini free tier rate limit.** Gemini 2.5 Flash free tier allows 10 requests per minute. Fine for normal use but hits the limit immediately in any kind of batch. Switched to Groq as the primary provider which gives 30 RPM and 14,400 requests per day on the free tier.
+
+**Speaker name detection.** Querying "what did the Minister for Finance say" was returning nothing because the code was filtering Pinecone by `speaker_name = "Minister for Finance"` which matched nobody. Added logic to detect when a speaker string is a role title rather than a person name, and skip the filter in that case.
+
+**Date filtering.** Range queries on string-formatted dates via Pinecone metadata filters were returning unexpected results. Moved date filtering to Python after fetching a wider result set.
 
 ---
 
@@ -217,4 +220,4 @@ frontend/
 
 Parliamentary debates from the [Houses of the Oireachtas](https://www.oireachtas.ie/en/open-data/) under the Open Data PSI Licence.
 
-Statistics from the [Central Statistics Office](https://www.cso.ie). CSO Ireland.
+Statistics from [CSO Ireland](https://www.cso.ie) via the PxStat API, open data.
