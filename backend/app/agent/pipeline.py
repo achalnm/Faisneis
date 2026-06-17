@@ -1,4 +1,6 @@
 import logging
+import re
+from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -157,12 +159,11 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
     first_period = result["series"][0].get("period", "")
     if not plan.date_start:
         today = date.today()
-        import re as _re2
-        if _re2.match(r"^\d{4}M\d{2}$", first_period):
+        if re.match(r"^\d{4}M\d{2}$", first_period):
             period_start = f"{today.year - 4}M{today.month:02d}"
-        elif _re2.match(r"^\d{4}Q\d$", first_period):
+        elif re.match(r"^\d{4}Q\d$", first_period):
             period_start = f"{today.year - 5}Q1"
-        elif _re2.match(r"^\d{4}\d$", first_period):
+        elif re.match(r"^\d{4}\d$", first_period):
             period_start = f"{today.year - 5}1"
         else:
             period_start = str(today.year - 7)
@@ -195,7 +196,6 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
                     None,
                 )
             if not agg_value:
-                from collections import defaultdict
                 totals: dict = defaultdict(float)
                 for s in result["series"]:
                     totals[s.get(dim)] += s.get("value") or 0

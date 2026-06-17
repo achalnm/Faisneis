@@ -1,5 +1,6 @@
 import itertools
 import logging
+import re
 from typing import Any
 
 import pandas as pd
@@ -118,8 +119,7 @@ def extract_series(
         unit_str = units
 
     if not unit_str and chosen_stat_label:
-        import re as _re
-        m = _re.search(r"\(([^)]+)\)", chosen_stat_label)
+        m = re.search(r"\(([^)]+)\)", chosen_stat_label)
         if m:
             unit_str = m.group(1)
         elif "percentage" in chosen_stat_label.lower() or "% change" in chosen_stat_label.lower():

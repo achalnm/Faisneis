@@ -90,30 +90,6 @@ def fetch_debate_xml(client: httpx.Client, cache_dir: Path, xml_uri: str) -> byt
     return r.content
 
 
-def iter_debate_records(
-    cache_dir: Path,
-    chamber: str,
-    date_start: str,
-    date_end: str,
-) -> Iterator[dict]:
-    with httpx.Client() as client:
-        skip = 0
-        while True:
-            data = fetch_debate_list_page(
-                client, cache_dir, chamber, date_start, date_end, skip
-            )
-            results = data.get("results", [])
-            if not results:
-                break
-            for item in results:
-                dr = item.get("debateRecord", {})
-                if dr:
-                    yield dr
-            skip += len(results)
-            if len(results) < PAGE_SIZE:
-                break
-
-
 def iter_debate_xmls(
     cache_dir: Path,
     chamber: str,
