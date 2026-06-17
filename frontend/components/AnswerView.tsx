@@ -6,51 +6,73 @@ interface Props {
   answer: Answer;
 }
 
-function renderAnswer(text: string) {
+function scrollToFootnote(ref: string) {
+  const el = document.getElementById(`footnote-${ref}`);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function renderParagraph(text: string, key: number) {
   const parts = text.split(/(\[[SC]\d+\])/g);
-  return parts.map((part, i) => {
+  const nodes = parts.map((part, i) => {
     const m = part.match(/^\[([SC]\d+)\]$/);
     if (m) {
-      const ref = m[1];
       return (
-        <a
+        <button
           key={i}
-          href={`#cite-${ref}`}
-          className="text-green-700 text-xs font-semibold align-super ml-0.5 hover:underline"
+          className="cit-marker"
+          onClick={() => scrollToFootnote(m[1])}
+          title={`Go to source ${m[1]}`}
         >
-          [{ref}]
-        </a>
+          {m[1]}
+        </button>
       );
     }
     return <span key={i}>{part}</span>;
   });
+
+  return (
+    <p
+      key={key}
+      style={{
+        fontFamily: "var(--font-body)",
+        fontSize: 17,
+        lineHeight: 1.8,
+        color: "var(--color-ink)",
+        margin: 0,
+        paddingBottom: "1.1em",
+      }}
+    >
+      {nodes}
+    </p>
+  );
 }
 
-const confidenceStyles: Record<string, string> = {
-  high: "bg-green-100 text-green-800",
-  medium: "bg-yellow-100 text-yellow-800",
-  low: "bg-red-100 text-red-800",
-};
-
 export default function AnswerView({ answer }: Props) {
-  return (
-    <div className="space-y-4">
-      <p className="text-gray-900 leading-relaxed text-base">
-        {renderAnswer(answer.answer)}
-      </p>
+  const paragraphs = answer.answer
+    .split(/\n\n+/)
+    .filter((p) => p.trim().length > 0);
 
-      <div className="flex items-center gap-3 pt-1">
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-            confidenceStyles[answer.confidence] ?? "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {answer.confidence} confidence
-        </span>
+  return (
+    <div>
+      <div>
+        {paragraphs.length > 0
+          ? paragraphs.map((p, i) => renderParagraph(p.trim(), i))
+          : renderParagraph(answer.answer, 0)}
       </div>
 
-      {answer.caveats && (
-        <p className="text-sm text-gray-500 italic border-l-2 border-gray-200 pl-3">
+      {answer.caveats && answer.caveats.trim() && (
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontStyle: "italic",
+            fontSize: 15,
+            color: "var(--color-ink-muted)",
+            borderLeft: "3px solid var(--color-rule)",
+            paddingLeft: 14,
+            marginTop: 4,
+            lineHeight: 1.7,
+          }}
+        >
           {answer.caveats}
         </p>
       )}
