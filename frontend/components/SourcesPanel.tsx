@@ -8,94 +8,132 @@ interface Props {
   statCitations: StatCitation[];
 }
 
+function SpeechCard({ c }: { c: SpeechCitation }) {
+  return (
+    <div
+      id={`footnote-${c.ref}`}
+      className="footnote-card scroll-mt-24"
+      style={{
+        borderLeft: "3px solid var(--color-green-accent)",
+        padding: "10px 10px 10px 14px",
+        background: "var(--color-parchment-dark)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "var(--color-green-dark)" }}>
+              {c.ref}
+            </span>
+            <span style={{ fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 13, color: "var(--color-ink)" }}>
+              {c.speaker}
+            </span>
+            {c.party && (
+              <span style={{ fontFamily: "var(--font-body)", fontStyle: "italic", fontSize: 12, color: "var(--color-ink-muted)" }}>
+                ({c.party})
+              </span>
+            )}
+            <span style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--color-ink-muted)" }}>
+              {c.date}
+            </span>
+          </div>
+
+          {c.debate_title && (
+            <p className="mt-0.5 truncate" style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--color-ink-muted)" }}>
+              {c.debate_title}
+            </p>
+          )}
+
+          {c.quote_or_paraphrase && (
+            <p className="mt-2" style={{ fontFamily: "var(--font-body)", fontStyle: "italic", fontSize: 13, color: "var(--color-ink)", lineHeight: 1.6 }}>
+              &ldquo;{c.quote_or_paraphrase}&rdquo;
+            </p>
+          )}
+        </div>
+
+        {c.source_url && (
+          <a href={c.source_url} target="_blank" rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1"
+            style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--color-green-accent)", textDecoration: "none", whiteSpace: "nowrap" }}
+            title="Open in Oireachtas"
+          >
+            Oireachtas <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ c }: { c: StatCitation }) {
+  return (
+    <div
+      id={`footnote-${c.ref}`}
+      className="footnote-card scroll-mt-24"
+      style={{
+        borderLeft: "3px solid var(--color-orange-accent)",
+        padding: "12px 10px 10px 14px",
+        background: "var(--color-parchment-dark)",
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 13, color: "#b85c00" }}>
+              {c.ref}
+            </span>
+            <span style={{ fontFamily: "var(--font-ui)", fontWeight: 600, fontSize: 13, color: "var(--color-ink)" }}>
+              {c.title}
+            </span>
+          </div>
+
+          <p className="mt-1" style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--color-ink-muted)" }}>
+            {c.value_or_range}{c.units ? ` ${c.units}` : ""} &middot; {c.period}
+          </p>
+
+          <p style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--color-ink-faint)", marginTop: 2 }}>
+            Matrix {c.matrix}
+          </p>
+        </div>
+
+        {c.source_url && (
+          <a href={c.source_url} target="_blank" rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1"
+            style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--color-orange-accent)", textDecoration: "none", whiteSpace: "nowrap" }}
+            title="Open CSO table"
+          >
+            CSO <ExternalLink size={11} />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SourcesPanel({ speechCitations, statCitations }: Props) {
   if (speechCitations.length === 0 && statCitations.length === 0) return null;
 
   return (
-    <div className="space-y-6 mt-6">
-      {speechCitations.length > 0 && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            From the Oireachtas
-          </h3>
-          <ul className="space-y-3">
-            {speechCitations.map((c) => (
-              <li
-                key={c.ref}
-                id={`cite-${c.ref}`}
-                className="border border-gray-100 rounded-lg p-3 text-sm scroll-mt-20"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <span className="font-medium text-gray-800">{c.speaker}</span>
-                    {c.party && (
-                      <span className="ml-1.5 text-xs text-gray-400">({c.party})</span>
-                    )}
-                    <span className="ml-2 text-gray-400 text-xs">{c.date}</span>
-                    <p className="text-gray-500 text-xs mt-0.5 truncate">{c.debate_title}</p>
-                    {c.quote_or_paraphrase && (
-                      <p className="mt-1.5 text-gray-700 italic text-xs leading-relaxed">
-                        &ldquo;{c.quote_or_paraphrase}&rdquo;
-                      </p>
-                    )}
-                  </div>
-                  <a
-                    href={c.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-green-600 hover:text-green-700"
-                    title="Open debate"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                </div>
-                <span className="inline-block mt-1 text-[10px] font-semibold text-green-700 bg-green-50 rounded px-1">
-                  {c.ref}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+    <div className="mt-8">
+      <div className="flex items-center gap-3 mb-6">
+        <div style={{ flex: 1, height: 1, background: "var(--color-rule)" }} />
+        <span style={{
+          fontFamily: "var(--font-ui)",
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "var(--color-ink-muted)",
+        }}>
+          Sources
+        </span>
+        <div style={{ flex: 1, height: 1, background: "var(--color-rule)" }} />
+      </div>
 
-      {statCitations.length > 0 && (
-        <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
-            From the CSO
-          </h3>
-          <ul className="space-y-3">
-            {statCitations.map((c) => (
-              <li
-                key={c.ref}
-                id={`cite-${c.ref}`}
-                className="border border-gray-100 rounded-lg p-3 text-sm scroll-mt-20"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <span className="font-medium text-gray-800">{c.title}</span>
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      {c.value_or_range} {c.units && `(${c.units})`} &mdash; {c.period}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-0.5">Matrix: {c.matrix}</p>
-                  </div>
-                  <a
-                    href={c.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 text-green-600 hover:text-green-700"
-                    title="Open CSO table"
-                  >
-                    <ExternalLink size={14} />
-                  </a>
-                </div>
-                <span className="inline-block mt-1 text-[10px] font-semibold text-green-700 bg-green-50 rounded px-1">
-                  {c.ref}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {speechCitations.map(c => <SpeechCard key={c.ref} c={c} />)}
+        {statCitations.map(c => <StatCard key={c.ref} c={c} />)}
+      </div>
     </div>
   );
 }
