@@ -16,53 +16,127 @@ interface Props {
   data: ChartData;
 }
 
+function formatPeriod(p: string): string {
+  const monthly = p.match(/^(\d{4})M(\d{2})$/);
+  if (monthly) {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[parseInt(monthly[2]) - 1]} '${monthly[1].slice(2)}`;
+  }
+  const quarterly = p.match(/^(\d{4})Q(\d)$/);
+  if (quarterly) return `Q${quarterly[2]} '${quarterly[1].slice(2)}`;
+  return p.slice(0, 7);
+}
+
 export default function StatChart({ data }: Props) {
   if (!data.points || data.points.length === 0) return null;
 
-  const stride = Math.max(1, Math.floor(data.points.length / 48));
+  const step = Math.max(1, Math.floor(data.points.length / 10));
 
   return (
-    <div className="mt-6 border border-gray-100 rounded-xl p-4">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-800">{data.title}</h3>
-          {data.units && (
-            <p className="text-xs text-gray-400 mt-0.5">{data.units}</p>
-          )}
-        </div>
-        <a
-          href={data.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-green-600 hover:underline shrink-0 ml-2"
+    <div
+      className="mt-8"
+      style={{
+        borderLeft: "4px solid var(--color-green-accent)",
+        background: "var(--color-parchment-dark)",
+        paddingTop: 20,
+        paddingBottom: 16,
+        paddingLeft: 20,
+        paddingRight: 20,
+      }}
+    >
+      <div className="mb-4">
+        <h3
+          style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: 16,
+            color: "var(--color-ink)",
+            lineHeight: 1.3,
+          }}
         >
-          Source: CSO <ExternalLink size={11} />
-        </a>
+          {data.title}
+        </h3>
+        {data.units && (
+          <p
+            style={{
+              fontFamily: "var(--font-ui)",
+              fontSize: 11,
+              color: "var(--color-ink-muted)",
+              marginTop: 2,
+              letterSpacing: "0.03em",
+            }}
+          >
+            {data.units}
+          </p>
+        )}
       </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data.points} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart
+          data={data.points}
+          margin={{ top: 4, right: 8, left: -8, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="2 4" stroke="var(--color-rule)" vertical={false} />
           <XAxis
             dataKey="period"
-            tick={{ fontSize: 10, fill: "#9ca3af" }}
-            interval="preserveStartEnd"
-            tickFormatter={(v) => v.slice(0, 7)}
+            tick={{
+              fontSize: 10,
+              fill: "var(--color-ink-muted)",
+              fontFamily: "var(--font-ui)",
+            }}
+            tickFormatter={formatPeriod}
+            interval={step - 1}
+            axisLine={{ stroke: "var(--color-rule)" }}
+            tickLine={false}
           />
-          <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} width={48} />
+          <YAxis
+            tick={{
+              fontSize: 10,
+              fill: "var(--color-ink-muted)",
+              fontFamily: "var(--font-ui)",
+            }}
+            width={44}
+            axisLine={false}
+            tickLine={false}
+          />
           <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 6, borderColor: "#e5e7eb" }}
-            formatter={(v) => [v, data.units || "Value"]}
+            contentStyle={{
+              fontFamily: "var(--font-ui)",
+              fontSize: 12,
+              background: "var(--color-parchment)",
+              border: "1px solid var(--color-rule)",
+              borderRadius: 0,
+            }}
+            formatter={(v: number) => [v, data.units || "Value"]}
+            labelFormatter={formatPeriod}
           />
           <Line
             type="monotone"
             dataKey="value"
-            stroke="#16a34a"
+            stroke="var(--color-green-accent)"
             strokeWidth={2}
             dot={false}
-            activeDot={{ r: 4 }}
+            activeDot={{ r: 4, fill: "var(--color-green-dark)" }}
           />
         </LineChart>
       </ResponsiveContainer>
+
+      {data.source_url && (
+        <a
+          href={data.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 mt-3"
+          style={{
+            fontFamily: "var(--font-ui)",
+            fontSize: 11,
+            color: "var(--color-ink-faint)",
+            textDecoration: "none",
+          }}
+        >
+          via CSO PxStat <ExternalLink size={10} />
+        </a>
+      )}
     </div>
   );
 }
