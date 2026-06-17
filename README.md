@@ -109,7 +109,7 @@ Set these in `backend/.env`:
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | |
 | `GOOGLE_API_KEY` | | Required for Gemini or as Groq fallback |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | |
-| `PINECONE_API_KEY` | | Leave blank to use local Chroma instead |
+| `PINECONE_API_KEY` | | Required |
 | `PINECONE_INDEX` | `faisneis-speeches` | |
 | `CACHE_DIR` | `./data/cache` | CSO responses cached to disk here |
 
@@ -133,7 +133,7 @@ python -m app.ingest.run_ingest --chamber dail --date-start 2024-01-01 --date-en
 python -m app.ingest.run_ingest --chamber both
 ```
 
-Re-running is safe, it skips speech IDs already in the index.
+Re-running is safe, existing IDs get looked up first so nothing gets duplicated.
 
 ---
 
