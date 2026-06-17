@@ -1,188 +1,280 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { askQuestion, AskResponse } from "./api-client";
+import { useState } from "react";
+import { askQuestion, AskResponse, ToolPlan } from "./api-client";
+import Masthead from "@/components/Masthead";
+import QuestionDesk from "@/components/QuestionDesk";
+import LoadingState from "@/components/LoadingState";
 import AnswerView from "@/components/AnswerView";
 import SourcesPanel from "@/components/SourcesPanel";
 import StatChart from "@/components/StatChart";
-import { Search, ChevronDown, ChevronUp } from "lucide-react";
+import TricolourStripe from "@/components/TricolourStripe";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
-const EXAMPLES = [
-  "What did Irish politicians say about housing supply in 2024?",
-  "How often has the cost of living been raised in the Dáil this year, and what do the inflation figures show?",
-  "What has the Minister for Finance said about employment, and how does that compare to the CSO unemployment rate?",
-];
+// badge
+function ConfidenceBadge({ level }: { level: "high" | "medium" | "low" }) {
+  const config = {
+    high:   { borderColor: "#169B62", textColor: "#0d5e38", label: "High confidence" },
+    medium: { borderColor: "#c27a00", textColor: "#7a4d00", label: "Medium confidence" },
+    low:    { borderColor: "#c0392b", textColor: "#7b1e1e", label: "Low confidence" },
+  }[level] ?? { borderColor: "#999", textColor: "#555", label: level };
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        borderLeft: `3px solid ${config.borderColor}`,
+        paddingLeft: 8,
+        fontFamily: "var(--font-ui)",
+        fontSize: 11,
+        letterSpacing: "0.07em",
+        textTransform: "uppercase",
+        color: config.textColor,
+        fontWeight: 600,
+      }}
+    >
+      {level === "high" && <span className="live-dot" />}
+      {config.label}
+    </span>
+  );
+}
+
+// editor thing
+function EditorNote({ toolPlan, open, onToggle }: { toolPlan: ToolPlan; open: boolean; onToggle: () => void }) {
+  return (
+    <div
+      className="mt-10"
+      style={{ background: "#ece7da", border: "1px solid var(--color-rule)" }}
+    >
+      <button
+        onClick={onToggle}
+        className="flex items-center justify-between w-full px-4 py-3"
+        style={{ background: "transparent", border: "none", cursor: "pointer" }}
+      >
+        <span style={{
+          fontFamily: "var(--font-ui)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "var(--color-ink-muted)",
+        }}>
+          Editor&rsquo;s Note
+        </span>
+        {open ? <ChevronUp size={13} color="var(--color-ink-muted)" /> : <ChevronDown size={13} color="var(--color-ink-muted)" />}
+      </button>
+
+      <div className="editor-note-body" style={{ maxHeight: open ? 300 : 0 }}>
+        <div
+          className="px-4 pb-4 space-y-1.5"
+          style={{
+            fontFamily: "var(--font-ui)",
+            fontSize: 12,
+            color: "var(--color-ink-muted)",
+            borderTop: "1px solid var(--color-rule)",
+            paddingTop: 12,
+          }}
+        >
+          <p><span style={{ fontWeight: 600, color: "var(--color-ink)" }}>intent</span>&nbsp; {toolPlan.intent}</p>
+          {toolPlan.speech_query && (
+            <p><span style={{ fontWeight: 600, color: "var(--color-ink)" }}>query</span>&nbsp; {toolPlan.speech_query}</p>
+          )}
+          {toolPlan.speakers.length > 0 && (
+            <p><span style={{ fontWeight: 600, color: "var(--color-ink)" }}>speakers</span>&nbsp; {toolPlan.speakers.join(", ")}</p>
+          )}
+          {toolPlan.stats_topics.length > 0 && (
+            <p><span style={{ fontWeight: 600, color: "var(--color-ink)" }}>topics</span>&nbsp; {toolPlan.stats_topics.join(", ")}</p>
+          )}
+          <p><span style={{ fontWeight: 600, color: "var(--color-ink)" }}>why</span>&nbsp; {toolPlan.rationale}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Home() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showReasoning, setShowReasoning] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [askedQ, setAskedQ] = useState("");
+  const [editorOpen, setEditorOpen] = useState(false);
 
   async function submit(q?: string) {
-    const text = q ?? question;
-    if (!text.trim()) return;
+    const text = (q ?? question).trim();
+    if (!text) return;
     if (q) setQuestion(q);
     setLoading(true);
     setError(null);
     setResult(null);
-    setShowReasoning(false);
+    setAskedQ(text);
+    setEditorOpen(false);
     try {
-      const data = await askQuestion(text.trim());
+      const data = await askQuestion(text);
       setResult(data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e instanceof Error ? e.message : "couldn't fetch the answer");
     } finally {
       setLoading(false);
     }
   }
 
-  function handleKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        {/* Header */}
-        <header className="mb-10 text-center">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Fáisnéis</h1>
-          <p className="mt-2 text-gray-500 text-sm max-w-md mx-auto">
-            Ask about Irish parliamentary debates and official statistics together.
-            Every figure and quote traces to its source.
-          </p>
-        </header>
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--color-parchment)" }}>
+      <Masthead />
 
-        {/* Search box */}
-        <div className="relative">
-          <textarea
-            ref={inputRef}
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={handleKey}
-            rows={2}
-            placeholder="Ask a question about Irish politics and economics…"
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 pr-12 text-sm text-gray-900 placeholder-gray-400 shadow-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          <button
-            onClick={() => submit()}
-            disabled={loading || !question.trim()}
-            className="absolute bottom-3 right-3 p-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 transition-colors"
-            aria-label="Ask"
-          >
-            <Search size={16} />
-          </button>
-        </div>
+      <QuestionDesk
+        question={question}
+        setQuestion={setQuestion}
+        onSubmit={submit}
+        loading={loading}
+      />
 
-        {/* Example chips */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              onClick={() => submit(ex)}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-200 bg-white text-gray-600 hover:border-green-400 hover:text-green-700 transition-colors"
-            >
-              {ex.length > 60 ? ex.slice(0, 57) + "…" : ex}
-            </button>
-          ))}
-        </div>
+      <main className="flex-1 w-full">
+        {loading && <LoadingState />}
 
-        {/* Loading */}
-        {loading && (
-          <div className="mt-10 space-y-1.5">
-            <div className="flex items-center gap-3 text-gray-400 text-sm">
-              <span className="inline-block w-4 h-4 border-2 border-gray-200 border-t-green-600 rounded-full animate-spin" />
-              Searching debates and statistics…
+        {error && !loading && (
+          <div className="max-w-3xl mx-auto px-6 py-10">
+            <div style={{ borderLeft: "3px solid #c0392b", paddingLeft: 14, paddingTop: 10, paddingBottom: 10 }}>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: 13, color: "#7b1e1e" }}>
+                {error}
+              </p>
+              <button
+                onClick={() => submit()}
+                style={{
+                  fontFamily: "var(--font-ui)",
+                  fontSize: 12,
+                  color: "var(--color-green-accent)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  marginTop: 8,
+                  textDecoration: "underline",
+                }}
+              >
+                try again
+              </button>
             </div>
-            <p className="text-xs text-gray-300 pl-7">
-              If the server was idle, first request can take up to a minute to wake up.
-            </p>
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Result */}
         {result && !loading && (
-          <div className="mt-8 space-y-2">
-            {/* Answer */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+          <div className="w-full" style={{ background: "var(--color-parchment)" }}>
+            <article className="max-w-3xl mx-auto px-6 py-10">
+              <header className="mb-6">
+                <h2 style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "clamp(22px, 4vw, 30px)",
+                  color: "var(--color-ink)",
+                  lineHeight: 1.25,
+                  letterSpacing: "-0.01em",
+                  marginBottom: 14,
+                }}>
+                  {askedQ}
+                </h2>
+
+                <div
+                  className="flex flex-wrap items-center gap-x-5 gap-y-2"
+                  style={{
+                    fontFamily: "var(--font-ui)",
+                    fontSize: 11,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "var(--color-ink-muted)",
+                  }}
+                >
+                  <span>Oireachtas debates &middot; CSO PxStat</span>
+                  <ConfidenceBadge level={result.answer.confidence} />
+                </div>
+
+                <div style={{ height: 1, background: "var(--color-ink)", marginTop: 12, marginBottom: 2 }} />
+                <div style={{ height: 1, background: "var(--color-rule)", marginTop: 3 }} />
+              </header>
+
               <AnswerView answer={result.answer} />
-            </div>
 
-            {/* Chart */}
-            {result.chart_data && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-                <StatChart data={result.chart_data} />
-              </div>
-            )}
+              {result.chart_data && <StatChart data={result.chart_data} />}
 
-            {/* Sources */}
-            {(result.answer.speech_citations.length > 0 ||
-              result.answer.stat_citations.length > 0) && (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              {(result.answer.speech_citations.length > 0 || result.answer.stat_citations.length > 0) && (
                 <SourcesPanel
                   speechCitations={result.answer.speech_citations}
                   statCitations={result.answer.stat_citations}
                 />
-              </div>
-            )}
-
-            {/* Reasoning toggle */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-              <button
-                onClick={() => setShowReasoning(!showReasoning)}
-                className="w-full flex items-center justify-between px-5 py-3 text-xs text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <span className="font-medium uppercase tracking-wide">How this was answered</span>
-                {showReasoning ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-              {showReasoning && (
-                <div className="px-5 pb-4 text-xs text-gray-600 space-y-1.5 border-t border-gray-50">
-                  <p>
-                    <span className="font-medium text-gray-700">Intent</span>{" "}
-                    {result.tool_plan.intent}
-                  </p>
-                  {result.tool_plan.speech_query && (
-                    <p>
-                      <span className="font-medium text-gray-700">Speech query</span>{" "}
-                      {result.tool_plan.speech_query}
-                    </p>
-                  )}
-                  {result.tool_plan.stats_topics.length > 0 && (
-                    <p>
-                      <span className="font-medium text-gray-700">Stats topics</span>{" "}
-                      {result.tool_plan.stats_topics.join(", ")}
-                    </p>
-                  )}
-                  <p>
-                    <span className="font-medium text-gray-700">Rationale</span>{" "}
-                    {result.tool_plan.rationale}
-                  </p>
-                </div>
               )}
-            </div>
+
+              <EditorNote
+                toolPlan={result.tool_plan}
+                open={editorOpen}
+                onToggle={() => setEditorOpen((v) => !v)}
+              />
+            </article>
           </div>
         )}
+      </main>
 
-        {/* Footer */}
-        <footer className="mt-16 pt-6 border-t border-gray-100 text-xs text-gray-400 space-y-1 text-center">
-          <p>
-            Parliamentary debates under the Houses of the Oireachtas Open Data PSI Licence.
-          </p>
-          <p>Statistics &copy; Central Statistics Office, Ireland.</p>
-        </footer>
-      </div>
+      <footer style={{ background: "var(--color-green-dark)" }}>
+        <TricolourStripe />
+        <div className="max-w-5xl mx-auto px-6 py-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div>
+              <h3 style={{
+                fontFamily: "var(--font-ui)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--color-cream)",
+                opacity: 0.5,
+                marginBottom: 10,
+              }}>
+                Data
+              </h3>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--color-cream)", opacity: 0.6, lineHeight: 1.6 }}>
+                Dail and Seanad debates from the Oireachtas open data licence.
+              </p>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--color-cream)", opacity: 0.6, lineHeight: 1.6, marginTop: 6 }}>
+                Stats from CSO Ireland, open data.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: 18,
+                color: "var(--color-cream)",
+                marginBottom: 10,
+              }}>
+                Fáisnéis
+              </h3>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--color-cream)", opacity: 0.6, lineHeight: 1.6 }}>
+                315k speeches from the Dail and Seanad. Links back to the actual debate.
+              </p>
+            </div>
+
+            <div>
+              <h3 style={{
+                fontFamily: "var(--font-ui)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                color: "var(--color-cream)",
+                opacity: 0.5,
+                marginBottom: 10,
+              }}>
+                Built for Ireland
+              </h3>
+              <p style={{ fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--color-cream)", opacity: 0.6, lineHeight: 1.6 }}>
+                all open source data
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
