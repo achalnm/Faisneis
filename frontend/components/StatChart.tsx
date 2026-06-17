@@ -108,7 +108,7 @@ export default function StatChart({ data }: Props) {
               borderRadius: 0,
             }}
             formatter={(v) => [v, data.units || "Value"]}
-            labelFormatter={formatPeriod}
+            labelFormatter={(l) => formatPeriod(String(l ?? ""))}
           />
           <Line
             type="monotone"
