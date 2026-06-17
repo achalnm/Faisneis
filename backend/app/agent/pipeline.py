@@ -147,31 +147,56 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
         logger.error("Failed to fetch dataset %s: %s", matrix, e)
         return None
 
-    period_start = None
-    period_end = None
-    if plan.date_start:
-        period_start = plan.date_start.replace("-", "")[:6]
-    if plan.date_end:
-        period_end = plan.date_end.replace("-", "")[:6]
+    # fetch everything first so we can detect the period format
+    result = extract_series(ds)
 
-    if not period_start:
+    if not result["series"]:
+        return result
+
+    # work out period_start using the actual period format in the data
+    first_period = result["series"][0].get("period", "")
+    if not plan.date_start:
         today = date.today()
-        period_start = f"{today.year - 3}{today.month:02d}"
+        import re as _re2
+        if _re2.match(r"^\d{4}M\d{2}$", first_period):
+            period_start = f"{today.year - 4}M{today.month:02d}"
+        elif _re2.match(r"^\d{4}Q\d$", first_period):
+            period_start = f"{today.year - 5}Q1"
+        else:
+            period_start = str(today.year - 7)
+    else:
+        period_start = plan.date_start[:4]
 
-    result = extract_series(ds, period_start=period_start, period_end=period_end)
+    period_end = plan.date_end[:4] if plan.date_end else None
 
+    result["series"] = [
+        s for s in result["series"]
+        if s.get("period", "") >= period_start
+        and (not period_end or s.get("period", "") <= period_end)
+    ]
+
+    # pick one slice of any extra dimensions (e.g. country of origin)
     if result["series"]:
         sample = result["series"][0]
         extra_dims = [k for k in sample.keys() if k not in ("period", "value")]
+        _AGG_LABELS = (
+            "All items", "All", "State", "Ireland", "Total",
+            "All countries", "Worldwide", "All origins", "All areas",
+        )
         for dim in extra_dims:
-            agg_value = next(
-                (v for v in ("All items", "All", "State", "Ireland") if
-                 any(s.get(dim) == v for s in result["series"])),
-                None,
-            )
-            if agg_value:
-                result["series"] = [s for s in result["series"] if s.get(dim) == agg_value]
-                break
+            vals_in_data = {s.get(dim) for s in result["series"]}
+            agg_value = next((v for v in _AGG_LABELS if v in vals_in_data), None)
+            if not agg_value:
+                # no standard aggregate — pick whichever value has the highest sum
+                from collections import defaultdict
+                totals: dict = defaultdict(float)
+                for s in result["series"]:
+                    totals[s.get(dim)] += s.get("value") or 0
+                agg_value = max(totals, key=lambda k: totals[k])
+            result["series"] = [s for s in result["series"] if s.get(dim) == agg_value]
+
+    # cap to avoid overwhelming the chart
+    result["series"] = result["series"][-48:]
 
     return result
 
