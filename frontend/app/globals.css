@@ -1,26 +1,164 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-green-dark: #1a3a2a;
+  --color-green-mid: #2d5a3d;
+  --color-green-accent: #169B62;
+  --color-orange-accent: #FF883E;
+  --color-parchment: #f5f0e8;
+  --color-parchment-dark: #ede8dc;
+  --color-ink: #1c1c1c;
+  --color-ink-muted: #4a4a4a;
+  --color-ink-faint: #999;
+  --color-cream: #faf7f0;
+  --color-rule: #d4cfc6;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-green-dark: #1a3a2a;
+  --color-green-mid: #2d5a3d;
+  --color-green-accent: #169B62;
+  --color-orange-accent: #FF883E;
+  --color-parchment: #f5f0e8;
+  --color-parchment-dark: #ede8dc;
+  --color-ink: #1c1c1c;
+  --color-ink-muted: #4a4a4a;
+  --color-cream: #faf7f0;
+  --color-rule: #d4cfc6;
+
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-ui: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+}
+
+/* shimmer */
+@keyframes shimmer {
+  0%   { background-position: -1400px 0; }
+  100% { background-position: 1400px 0; }
+}
+
+.shimmer-line {
+  background: linear-gradient(
+    90deg,
+    var(--color-parchment-dark) 25%,
+    #d4cec0 50%,
+    var(--color-parchment-dark) 75%
+  );
+  background-size: 1400px 100%;
+  animation: shimmer 2s infinite linear;
+  border-radius: 2px;
+}
+
+/* dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.75); }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-green-accent);
+  margin-right: 5px;
+  animation: pulse-dot 2s ease-in-out infinite;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+/* chips */
+.example-chip {
+  display: inline-block;
+  padding: 5px 12px;
+  border: 1px solid var(--color-rule);
+  border-left-width: 1px;
+  border-radius: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  background: #fff;
+  cursor: pointer;
+  transition: border-left-width 120ms ease, border-left-color 120ms ease, color 120ms ease;
+  text-align: left;
+}
+
+.example-chip:hover {
+  border-left-width: 3px;
+  border-left-color: var(--color-green-accent);
+  color: var(--color-ink);
+}
+
+/* cit marker */
+.cit-marker {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-green-accent);
+  vertical-align: super;
+  line-height: 0;
+  cursor: pointer;
+  margin: 0 1px;
+  padding: 0 2px;
+  transition: color 120ms ease;
+  text-decoration: none;
+  letter-spacing: 0;
+}
+
+.cit-marker:hover {
+  color: var(--color-green-dark);
+  text-decoration: underline;
+}
+
+/* input */
+.question-input {
+  width: 100%;
+  border: none;
+  border-bottom: 2px solid var(--color-ink);
+  border-radius: 0;
+  padding: 12px 0 10px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-style: italic;
+  color: var(--color-ink);
+  background: transparent;
+  outline: none;
+  resize: none;
+  transition: border-bottom-color 150ms ease;
+}
+
+.question-input::placeholder {
+  color: var(--color-ink-faint);
+  font-style: italic;
+}
+
+.question-input:focus {
+  border-bottom-color: var(--color-green-accent);
+}
+
+/* editor */
+.editor-note-body {
+  overflow: hidden;
+  transition: max-height 280ms ease;
+}
+
+/* footnote */
+.footnote-card {
+  transition: background 400ms ease;
+}
+
+.footnote-card:target {
+  background: #edf7f2;
 }
