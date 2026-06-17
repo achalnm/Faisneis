@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     ingest_date_end: Optional[str] = Field(default=None)
     pinecone_api_key: Optional[str] = Field(default=None)
     pinecone_index: str = Field(default="faisneis-speeches")
-    chroma_dir: Path = Field(default=Path("./data/chroma"))
     cache_dir: Path = Field(default=Path("./data/cache"))
     allowed_origins: str = Field(default="")
 
@@ -31,8 +30,6 @@ class Settings(BaseSettings):
         if not self.groq_model:
             self.groq_model = "llama-3.3-70b-versatile"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        if not self.pinecone_api_key:
-            self.chroma_dir.mkdir(parents=True, exist_ok=True)
 
 
 settings = Settings()
