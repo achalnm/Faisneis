@@ -187,7 +187,12 @@ def _fetch_stat(topic: str, plan: ToolPlan) -> dict | None:
             vals_in_data = {s.get(dim) for s in result["series"]}
             agg_value = next((v for v in _AGG_LABELS if v in vals_in_data), None)
             if not agg_value:
-                # no standard aggregate — pick whichever value has the highest sum
+                # CSO often uses "All ..." as the aggregate row label
+                agg_value = next(
+                    (v for v in vals_in_data if isinstance(v, str) and v.lower().startswith("all")),
+                    None,
+                )
+            if not agg_value:
                 from collections import defaultdict
                 totals: dict = defaultdict(float)
                 for s in result["series"]:
@@ -251,7 +256,7 @@ def answer(question: str) -> AskResponse:
     chart_data: ChartData | None = None
     for sr in stat_results:
         series = sr.get("series", [])
-        if len(series) >= 3:
+        if len(series) >= 2:
             chart_data = ChartData(
                 title=sr.get("title", ""),
                 units=sr.get("units", ""),
