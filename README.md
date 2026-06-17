@@ -164,7 +164,7 @@ backend/
     config.py       settings via pydantic-settings
     schemas.py      request and response types
     agent/          router, synthesizer, LLM wrappers, pipeline
-    retrieval/      Pinecone and Chroma clients, fastembed wrapper
+    retrieval/      Pinecone client, fastembed wrapper
     stats/          CSO API client, catalog keyword search, jsonstat parser
     ingest/         Oireachtas XML parser and ingestion scripts
 frontend/
